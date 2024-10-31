@@ -12,11 +12,11 @@ By using this service, you agree to the terms of service and acknowledge that yo
 <!-- FEATURES -->
 ## Features:
 
-- Message encryption with a pre-shared password
+- Client-side E2E message encryption with a pre-shared password
+
+- Server-side room encryption
 
 - Server runs even on cheapest hardware
-
-- No JavaScript required
 
 - Each message is stored in RAM and auto-wiped after 24 hours
 
@@ -27,17 +27,19 @@ By using this service, you agree to the terms of service and acknowledge that yo
 ## Technical details:
 
 - AES-256-CBC for encrypting messages
-- Argon2id for key derivation
+- PBKDF2 for client-side key derivation
+- Argon2id for server-side key derivation
 
 <!-- INSTALLATION -->
 ## Installation:
 
     sudo apt update
-    sudo apt install curl build-essential rustc git
+    sudo apt install curl build-essential git
+    curl https://sh.rustup.rs -sSf | sh -s -- -y
     git clone https://github.com/umutcamliyurt/Amnesichat.git
     cd Amnesichat/
-    sudo cargo build --release
-    sudo cargo run --release
+    cargo build --release
+    cargo run --release
 
 ## Run with Docker:
     
@@ -45,8 +47,8 @@ By using this service, you agree to the terms of service and acknowledge that yo
     sudo apt install docker.io git
     git clone https://github.com/umutcamliyurt/Amnesichat.git
     cd Amnesichat/
-    docker build -t amnesichat:latest .
-    docker run -p 80:80 amnesichat:latest
+    sudo docker build -t amnesichat:latest .
+    sudo docker run -p 8080:8080 amnesichat:latest
 
 ## Requirements:
 
