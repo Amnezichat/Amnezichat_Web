@@ -428,7 +428,7 @@ async fn index(username: Option<String>, password: Option<String>, state: &State
                 <div class="noscript-overlay">
                     <div class="noscript-message">
                         <h2>JavaScript is Disabled</h2>
-                        <p>This chat application requires JavaScript to function properly. Please enable JavaScript in your browser settings.</p>
+                        <p>This chat application requires JavaScript for E2EE functionality. Please enable JavaScript in your browser settings or allow it for this website.</p>
                     </div>
                 </div>
             </noscript>
