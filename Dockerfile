@@ -17,7 +17,10 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 WORKDIR /app
 
 # Clone the repository
-RUN git clone https://github.com/umutcamliyurt/Amnesichat.git .
+RUN git clone https://github.com/umutcamliyurt/Amnezichat.git .
+
+# Navigate to the server directory
+WORKDIR /app/server
 
 # Build the Rust project in release mode
 RUN cargo build --release

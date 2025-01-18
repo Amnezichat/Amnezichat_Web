@@ -1,5 +1,0 @@
-requests
-pycryptodome
-argon2-cffi
-colorama
-tkinter

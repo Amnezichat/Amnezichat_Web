@@ -1,0 +1,135 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    background: linear-gradient(135deg, #2c3e50, #4ca1af);
+    color: #ecf0f1;
+    text-align: center;
+}
+
+.container {
+    padding: 30px;
+    background: rgba(44, 62, 80, 0.95);
+    border: 1px solid #34495e;
+    border-radius: 12px;
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.6);
+    max-width: 600px;
+    width: 90%;
+}
+
+h1 {
+    font-size: 2rem;
+    margin-bottom: 15px;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+p {
+    font-size: 1.1rem;
+    margin-bottom: 25px;
+    color: #bdc3c7;
+}
+
+a.download-button {
+    display: inline-block;
+    text-decoration: none;
+    color: #ffffff;
+    background: linear-gradient(45deg, #1abc9c, #16a085);
+    padding: 12px 25px;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+
+a.download-button:hover {
+    background: linear-gradient(45deg, #16a085, #1abc9c);
+    transform: scale(1.05);
+}
+
+.main-links {
+    margin: 20px 0;
+}
+
+.main-links a {
+    text-decoration: none;
+    color: #1abc9c;
+    margin: 0 8px;
+    font-size: 1rem;
+    transition: color 0.3s ease;
+}
+
+.main-links a:hover {
+    color: #16a085;
+}
+
+details {
+    margin: 10px 0;
+    text-align: left;
+}
+
+details summary {
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #ecf0f1;
+}
+
+details p, details ul {
+    margin: 10px 0;
+    font-size: 0.95rem;
+    color: #bdc3c7;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+}
+
+.modal:target {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: #2c3e50;
+    padding: 20px;
+    border: 1px solid #34495e;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    color: #ecf0f1;
+}
+
+.modal-content pre {
+    background: #34495e;
+    padding: 15px;
+    border-radius: 8px;
+    color: #ecf0f1;
+    font-size: 0.9rem;
+    overflow-x: auto;
+}
+
+.close-button {
+    color: #e74c3c;
+    text-decoration: none;
+    font-size: 1.5rem;
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-weight: bold;
+}
+
+.close-button:hover {
+    color: #c0392b;
+}

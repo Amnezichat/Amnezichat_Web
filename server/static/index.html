@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Amnezichat</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Download Amnezichat</h1>
+        <p>Anti-forensic and secure messaging. Download it now and get started.</p>
+        <a href="#download" class="download-button">Download Now</a>
+
+        <div id="footer">
+            <!-- Main Links -->
+            <div class="main-links">
+                <a href="https://github.com/umutcamliyurt/Amnezichat" target="_blank">Source Code</a>
+                <a href="http://aqfyl6g24k44oyes3n35nrnlhdfvdwfvi4a7umjalu4dcstuzkxft4id.onion" target="_blank">Onionsite</a>
+                <a href="http://tlotbwh2e7oqnevnqup5gdzimobjjzmll7c2a2mm6hlbip4a7mzq.b32.i2p" target="_blank">Eepsite</a>
+                <a href="https://github.com/umutcamliyurt/Amnezichat?tab=readme-ov-file#donate-to-support-development-of-this-project">Donate Monero</a>
+            </div>
+
+            <!-- Privacy and Terms -->
+            <details id="terms-of-service-section">
+                <summary>Terms of Service</summary>
+                <p>By using Amnezichat, you agree to the following terms:</p>
+                <ul>
+                    <li>Use for lawful purposes only.</li>
+                    <li>Do not share illegal content.</li>
+                    <li>Respect others while using the platform.</li>
+                </ul>
+                <p>Amnezichat reserves the right to modify or discontinue the service without notice.</p>
+                <p>Contact: nemesisuks@protonmail.com</p>
+            </details>
+
+            <details>
+                <summary>Privacy Policy</summary>
+                <p>We value your privacy:</p>
+                <ul>
+                    <li>No personal information or chat logs are stored.</li>
+                    <li>Messages are encrypted and temporary.</li>
+                </ul>
+            </details>
+        </div>
+    </div>
+
+<!-- Modal -->
+<div id="download" class="modal">
+    <div class="modal-content">
+        <a href="#" class="close-button">&times;</a>
+        <h2>Installation Instructions</h2>
+
+        <!-- Option 1: Build it yourself -->
+        <h3>Option 1: Build it Yourself</h3>
+        <pre>
+sudo apt update
+sudo apt install curl build-essential git tor
+sudo systemctl enable --now tor.service
+curl https://sh.rustup.rs -sSf | sh -s -- -y
+git clone https://github.com/umutcamliyurt/Amnezichat.git
+cd Amnezichat/client/
+cargo build --release
+cargo run --release
+        </pre>
+        <!-- Option 2: Get it from GitHub Releases -->
+        <h3>Option 2: Get it from GitHub Releases</h3>
+        <p>If you prefer not to build it yourself, you can download precompiled binaries directly from the 
+        <a href="https://github.com/umutcamliyurt/Amnezichat/releases/" target="_blank" style="color: white;">GitHub Releases page</a></p>
+    </div>
+</div>
+</body>
+</html>
