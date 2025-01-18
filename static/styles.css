@@ -15,6 +15,8 @@ body {
     border: 1px solid #333;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+    width: 90%;
+    max-width: 600px;
 }
 h1 {
     font-size: 1.8em;
@@ -26,7 +28,7 @@ p {
     margin-bottom: 20px;
     color: #bdbdbd;
 }
-a {
+a.download-button {
     display: inline-block;
     text-decoration: none;
     color: #ffffff;
@@ -34,8 +36,73 @@ a {
     padding: 10px 20px;
     border-radius: 4px;
     font-size: 1em;
+    margin-bottom: 20px;
     transition: background-color 0.3s ease;
 }
-a:hover {
+a.download-button:hover {
     background-color: #003c97;
+}
+
+.main-links a {
+    display: inline-block;
+    text-decoration: underline;
+    margin: 5px 10px;
+    padding: 0;
+    background-color: transparent;
+    color: #ffffff;
+    font-weight: bold;
+    transition: color 0.3s ease;
+}
+
+.main-links a:hover {
+    color: #868686;
+    text-decoration: none;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+.modal:target {
+    display: block;
+}
+
+.modal-content {
+    background-color: #1e1e1e;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 600px;
+    color: #e0e0e0;
+    text-align: left;
+}
+
+.modal-content pre {
+    background: #121212;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.close-button {
+    color: #ffffff;
+    float: right;
+    font-size: 24px;
+    font-weight: bold;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.close-button:hover {
+    color: #f44336;
 }
