@@ -21,7 +21,4 @@ rpassword = "7.3.1"
 sha3 = "0.10.8"
 x25519-dalek = "2.0.1"
 ed25519-dalek = "2.1.1"
-eframe = "0.24.1"
-image = "0.24"
-rfd = "0.12"
-winapi = { version = "0.3", features = ["winuser", "windef"] }
+rocket = { version = "0.5", features = ["json"] }

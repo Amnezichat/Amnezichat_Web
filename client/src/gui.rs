@@ -2,32 +2,35 @@ use crate::encrypt_data;
 use crate::receive_and_fetch_messages;
 use crate::send_encrypted_message;
 use crate::pad_message;
-use eframe::egui;
-use image::GenericImageView;
-use rfd::FileDialog;
-use std::fs;
+use rocket::{get, post, routes, serde::json::Json};
+use rocket::fs::NamedFile;
+use rocket::tokio;
+use rocket::fs::FileServer;
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::Duration;
-use regex::Regex;
-use base64;
+use std::path::PathBuf;
 
+#[derive(Clone)]
 pub struct MessagingApp {
     username: String,
-    message_input: String,
     messages: Arc<Mutex<Vec<String>>>,
-    shared_hybrid_secret: Arc<std::string::String>,
+    shared_hybrid_secret: Arc<String>,
     shared_room_id: Arc<String>,
     shared_url: Arc<String>,
-    image_data: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct MessageInput {
+    message: String,
 }
 
 impl MessagingApp {
     pub fn new(
         username: String,
-        shared_hybrid_secret: Arc<std::string::String>,
-        shared_room_id: Arc<String>,
-        shared_url: Arc<String>,
+        shared_hybrid_secret: Arc<String>,
+        shared_room_id: Arc<Mutex<String>>,
+        shared_url: Arc<Mutex<String>>,
     ) -> Self {
         let messages = Arc::new(Mutex::new(vec![]));
         let messages_clone = Arc::clone(&messages);
@@ -35,160 +38,125 @@ impl MessagingApp {
         let shared_room_id_clone = Arc::clone(&shared_room_id);
         let shared_url_clone = Arc::clone(&shared_url);
 
-        thread::spawn(move || loop {
-            match receive_and_fetch_messages(
-                &shared_room_id_clone,
-                &shared_hybrid_secret_clone,
-                &shared_url_clone,
-                true,
-            ) {
-                Ok(new_messages) => {
-                    let mut msgs = messages_clone.lock().unwrap();
-                    msgs.clear();
-                    msgs.extend(new_messages);
+        let room_id = Arc::new(shared_room_id_clone.lock().unwrap_or_else(|_| panic!("Failed to lock room_id")).clone());
+        let url = Arc::new(shared_url_clone.lock().unwrap_or_else(|_| panic!("Failed to lock url")).clone());
+
+        tokio::spawn(async move {
+            loop {
+                let room_id_str = shared_room_id_clone.lock().unwrap_or_else(|_| panic!("Failed to lock room_id")).clone();
+                let url_str = shared_url_clone.lock().unwrap_or_else(|_| panic!("Failed to lock url")).clone();
+
+                match receive_and_fetch_messages(
+                    &room_id_str,
+                    &shared_hybrid_secret_clone,
+                    &url_str,
+                    true,
+                ) {
+                    Ok(new_messages) => {
+                        let mut msgs = messages_clone.lock().unwrap_or_else(|_| panic!("Failed to lock messages"));
+                        msgs.clear();
+                        msgs.extend(new_messages);
+                    }
+                    Err(e) => {
+                        eprintln!("Error fetching messages: {}", e);
+                    }
                 }
-                Err(e) => {
-                    eprintln!("Error fetching messages: {}", e);
-                }
+                tokio::time::sleep(Duration::from_secs(10)).await;
             }
-            thread::sleep(Duration::from_secs(10));
         });
 
         MessagingApp {
             username,
-            message_input: String::new(),
             messages,
             shared_hybrid_secret,
-            shared_room_id,
-            shared_url,
-            image_data: None,
+            shared_room_id: room_id,
+            shared_url: url,
         }
     }
+}
 
-    fn handle_image_upload(&mut self) {
-        if let Some(file_path) = FileDialog::new().add_filter("Image files", &["png", "jpg", "jpeg", "bmp", "gif"]).pick_file() {
-            match fs::read(&file_path) {
-                Ok(data) => {
-                    let encoded = base64::encode(data);
-                    self.image_data = Some(format!("[IMAGE_DATA]:{}[END DATA]", encoded));
-                }
-                Err(e) => eprintln!("Error reading image file: {}", e),
+#[get("/messages")]
+async fn get_messages(app: &rocket::State<MessagingApp>) -> Json<Vec<String>> {
+    let result = fetch_and_update_messages(&app).await;
+    
+    match result {
+        Ok(msgs) => Json(msgs),
+        Err(e) => {
+            eprintln!("Error fetching messages: {}", e);
+            
+            // Return current messages if fetching fails
+            let msgs = app.messages.lock().unwrap_or_else(|_| panic!("Failed to lock messages"));
+            Json(msgs.clone())
+        }
+    }
+}
+
+async fn fetch_and_update_messages(app: &rocket::State<MessagingApp>) -> Result<Vec<String>, String> {
+    let room_id_str = app.shared_room_id.clone();
+    let url_str = app.shared_url.clone();
+    
+    let new_messages = tokio::task::block_in_place(move || {
+        receive_and_fetch_messages(
+            &room_id_str,
+            &app.shared_hybrid_secret,
+            &url_str,
+            true,
+        )
+    }).map_err(|e| format!("Error fetching messages: {}", e))?;
+
+    // Update the in-memory message storage
+    let mut msgs = app.messages.lock().unwrap_or_else(|_| panic!("Failed to lock messages"));
+    msgs.clear();
+    msgs.extend(new_messages.clone());
+
+    Ok(new_messages)
+}
+
+#[post("/send", data = "<input>")]
+async fn post_message(
+    input: Json<MessageInput>,
+    app: &rocket::State<MessagingApp>
+) -> Result<&'static str, rocket::http::Status> {
+    // Create the formatted message once
+    let formatted_message = format!("<strong>{}</strong>: {}", app.username, input.message);
+    let padded_message = pad_message(&formatted_message, 2048);
+
+    let result = tokio::task::block_in_place(|| {
+        // Encrypt the message
+        let encrypted = encrypt_data(&padded_message, &app.shared_hybrid_secret)
+            .map_err(|e| {
+                eprintln!("Encryption error: {}", e);
+                rocket::http::Status::InternalServerError
+            })?;
+        
+        // Send the encrypted message
+        send_encrypted_message(&encrypted, &app.shared_room_id, &app.shared_url)
+            .map_err(|e| {
+                eprintln!("Error sending message: {}", e);
+                rocket::http::Status::InternalServerError
+            })
+    });
+
+    match result {
+        Ok(_) => {
+            {
+                let mut msgs = app.messages.lock().unwrap_or_else(|_| panic!("Failed to lock messages"));
+                msgs.push(formatted_message);
             }
+            Ok("Message sent")
         }
+        Err(e) => Err(e),
     }
 }
 
-impl eframe::App for MessagingApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.vertical(|ui| {
-                let chat_area_height = ui.available_height() - 80.0;
-
-                egui::Frame::none()
-                    .fill(egui::Color32::from_black_alpha(50))
-                    .rounding(10.0)
-                    .inner_margin(egui::style::Margin::same(10.0))
-                    .show(ui, |ui| {
-                        ui.set_height(chat_area_height);
-                        egui::ScrollArea::vertical()
-                            .auto_shrink([false, true])
-                            .show(ui, |ui| {
-                                let messages = self.messages.lock().unwrap();
-                                let re = Regex::new(r"</?strong>").unwrap();
-
-                                for message in messages.iter() {
-                                    if message.contains("[IMAGE_DATA]:") {
-                                        if let Some(encoded) = message.split("[IMAGE_DATA]:").nth(1) {
-                                            if let Some(end_idx) = encoded.find("[END DATA]") {
-                                                let image_data = &encoded[..end_idx];
-                                                match base64::decode(image_data) {
-                                                    Ok(decoded) => {
-                                                        if let Ok(image) = image::load_from_memory(&decoded) {
-                                                            let size = image.dimensions();
-                                                            let color_image = egui::ColorImage::from_rgba_unmultiplied(
-                                                                [size.0 as usize, size.1 as usize],
-                                                                &image.to_rgba8(),
-                                                            );
-                                                            let texture = ctx.load_texture(
-                                                                "received_image",
-                                                                color_image,
-                                                                egui::TextureOptions::LINEAR,
-                                                            );
-                                                            ui.image(&texture);
-                                                        } else {
-                                                            eprintln!("Failed to decode image format");
-                                                        }
-                                                    }
-                                                    Err(e) => eprintln!("Error decoding base64 image: {}", e),
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        let cleaned_message = re.replace_all(message, "");
-                                        ui.label(
-                                            egui::RichText::new(cleaned_message.as_ref())
-                                                .size(16.0)
-                                                .color(egui::Color32::WHITE),
-                                        );
-                                    }
-                                }
-                            });
-                    });
-
-                ui.horizontal(|ui| {
-                    let input_box_width = ui.available_width() * 0.65;
-                    let button_width = ui.available_width() * 0.15;
-
-                    let text_edit = egui::TextEdit::singleline(&mut self.message_input)
-                        .hint_text("Type a message...")
-                        .text_color(egui::Color32::WHITE)
-                        .frame(true);
-                    ui.add_sized([input_box_width, 40.0], text_edit);
-
-                    if ui.add_sized([button_width, 40.0], egui::Button::new("Send")).clicked() {
-                        let mut message = format!("<strong>{}</strong>: {}", self.username, self.message_input);
-                        if let Some(image) = &self.image_data {
-                            message.push_str(image);
-                            self.image_data = None;
-                        }
-
-                        // Pad the message to a fixed length (e.g., 2048 bytes)
-                        let padded_message = pad_message(&message, 2048);
-
-                        if let Err(e) = send_encrypted_message(
-                            &encrypt_data(&padded_message, &self.shared_hybrid_secret).unwrap(),
-                            &self.shared_room_id,
-                            &self.shared_url,
-                        ) {
-                            eprintln!("Error sending message: {}", e);
-                        } else {
-                            self.message_input.clear();
-                        }
-                    }
-
-                    if ui.add_sized([button_width, 40.0], egui::Button::new("Upload Image")).clicked() {
-                        self.handle_image_upload();
-                    }
-                });
-            });
-        });
-    }
+#[get("/")]
+async fn serve_webpage() -> Option<NamedFile> {
+    NamedFile::open(PathBuf::from("static/index.html")).await.ok()
 }
 
-pub fn run_gui(
-    username: String,
-    shared_hybrid_secret: Arc<std::string::String>,
-    shared_room_id: Arc<String>,
-    shared_url: Arc<String>,
-) -> Result<(), eframe::Error> {
-    let app = MessagingApp::new(
-        username,
-        shared_hybrid_secret,
-        shared_room_id,
-        shared_url,
-    );
-    let native_options = eframe::NativeOptions {
-        ..Default::default()
-    };
-    eframe::run_native("Amnezichat", native_options, Box::new(|_| Box::new(app)))
+pub fn create_rocket(app: MessagingApp) -> rocket::Rocket<rocket::Build> {
+    rocket::build()
+        .manage(app)
+        .mount("/", routes![get_messages, post_message, serve_webpage])
+        .mount("/static", FileServer::from("static"))
 }

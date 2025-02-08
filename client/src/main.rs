@@ -4,7 +4,8 @@ mod network_operations;
 mod key_exchange;
 mod authentication;
 mod encryption;
-use gui::run_gui;
+use gui::create_rocket;
+use gui::MessagingApp;
 use key_operations::key_operations_dilithium;
 use key_operations::key_operations_eddsa;
 use network_operations::create_client_with_proxy;
@@ -469,21 +470,29 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // Handle GUI or CLI messaging
         if interface_choice.to_lowercase() == "gui" {
-            let shared_hybrid_secret_for_gui = shared_hybrid_secret;
-            let shared_room_id_for_gui: Arc<String> = {
-                let locked = shared_room_id.lock().unwrap();
-                Arc::new(locked.clone())
-            };
-            let shared_url_for_gui: Arc<String> = {
-                let locked = shared_url.lock().unwrap();
-                Arc::new(locked.clone())
-            };
-            let _ = run_gui(
-                username.clone(),
-                shared_hybrid_secret_for_gui,
-                shared_room_id_for_gui,
-                shared_url_for_gui,
-            );
+            let rt = rocket::tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                // Wrap only for passing to run_gui
+                let shared_hybrid_secret_for_gui = shared_hybrid_secret;
+        
+                // Correctly clone Arc<Mutex<String>> instead of Arc<String>
+                let shared_room_id_for_gui: Arc<Mutex<String>> = Arc::clone(&shared_room_id);
+                let shared_url_for_gui: Arc<Mutex<String>> = Arc::clone(&shared_url);
+        
+                // Pass the arguments
+                let app = MessagingApp::new(
+                    username,
+                    shared_hybrid_secret_for_gui,
+                    shared_room_id_for_gui,
+                    shared_url_for_gui,
+                );
+        
+                // Await the async launch function
+                if let Err(e) = create_rocket(app).launch().await {
+                    eprintln!("Rocket server failed: {}", e);
+                }
+            });
+            
         } else {
             loop {
                 let mut message = String::new();
@@ -741,26 +750,28 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     
     if interface_choice.to_lowercase() == "gui" {
-        // Wrap only for passing to run_gui
-        let shared_hybrid_secret_for_gui = shared_hybrid_secret;
+        let rt = rocket::tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            // Wrap only for passing to run_gui
+            let shared_hybrid_secret_for_gui = shared_hybrid_secret;
     
-        let shared_room_id_for_gui: Arc<String> = {
-            let locked = shared_room_id.lock().unwrap();
-            Arc::new(locked.clone())
-        };
+            // Correctly clone Arc<Mutex<String>> instead of Arc<String>
+            let shared_room_id_for_gui: Arc<Mutex<String>> = Arc::clone(&shared_room_id);
+            let shared_url_for_gui: Arc<Mutex<String>> = Arc::clone(&shared_url);
     
-        let shared_url_for_gui: Arc<String> = {
-            let locked = shared_url.lock().unwrap();
-            Arc::new(locked.clone())
-        };
+            // Pass the arguments
+            let app = MessagingApp::new(
+                username,
+                shared_hybrid_secret_for_gui,
+                shared_room_id_for_gui,
+                shared_url_for_gui,
+            );
     
-        // Pass the arguments
-        let _ = run_gui(
-            username.clone(),
-            shared_hybrid_secret_for_gui,
-            shared_room_id_for_gui,
-            shared_url_for_gui,
-        );
+            // Await the async launch function
+            if let Err(e) = create_rocket(app).launch().await {
+                eprintln!("Rocket server failed: {}", e);
+            }
+        });
     
     } else {
         loop {

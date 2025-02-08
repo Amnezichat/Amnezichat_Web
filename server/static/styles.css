@@ -5,15 +5,15 @@ body {
     align-items: center;
     min-height: 100vh;
     margin: 0;
-    background: linear-gradient(135deg, #2c3e50, #4ca1af);
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
     color: #ecf0f1;
     text-align: center;
 }
 
 .container {
     padding: 30px;
-    background: rgba(44, 62, 80, 0.95);
-    border: 1px solid #34495e;
+    background: rgba(15, 30, 60, 0.95);
+    border: 1px solid #0f3b5f;
     border-radius: 12px;
     box-shadow: 0 8px 15px rgba(0, 0, 0, 0.6);
     max-width: 600px;
@@ -37,7 +37,7 @@ a.download-button {
     display: inline-block;
     text-decoration: none;
     color: #ffffff;
-    background: linear-gradient(45deg, #1abc9c, #16a085);
+    background: linear-gradient(45deg, #2980b9, #1e90ff);
     padding: 12px 25px;
     border-radius: 6px;
     font-size: 1rem;
@@ -46,7 +46,7 @@ a.download-button {
 }
 
 a.download-button:hover {
-    background: linear-gradient(45deg, #16a085, #1abc9c);
+    background: linear-gradient(45deg, #1e90ff, #2980b9);
     transform: scale(1.05);
 }
 
@@ -56,14 +56,14 @@ a.download-button:hover {
 
 .main-links a {
     text-decoration: none;
-    color: #1abc9c;
+    color: #2980b9;
     margin: 0 8px;
     font-size: 1rem;
     transition: color 0.3s ease;
 }
 
 .main-links a:hover {
-    color: #16a085;
+    color: #1e90ff;
 }
 
 details {
@@ -102,9 +102,9 @@ details p, details ul {
 }
 
 .modal-content {
-    background: #2c3e50;
+    background: #0f1e3c;
     padding: 20px;
-    border: 1px solid #34495e;
+    border: 1px solid #0a2b4f;
     border-radius: 12px;
     width: 90%;
     max-width: 600px;
@@ -112,7 +112,7 @@ details p, details ul {
 }
 
 .modal-content pre {
-    background: #34495e;
+    background: #0a2b4f;
     padding: 15px;
     border-radius: 8px;
     color: #ecf0f1;

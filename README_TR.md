@@ -70,6 +70,8 @@ Amnezichat, hiçbir kayıt tutulmamasını ve tüm mesaj verilerinin yalnızca s
 
 ## İstemci kullanımı:
 
+**Web UI için http://localhost:8000 adresine bağlanın**
+
     sudo apt update
     sudo apt install curl build-essential git tor
     sudo systemctl enable --now tor.service

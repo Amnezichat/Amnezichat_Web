@@ -70,6 +70,8 @@ Amnezichat offers a highly secure and privacy-focused messaging experience by en
 
 ## Client usage:
 
+**For Web UI connect to http://localhost:8000**
+
     sudo apt update
     sudo apt install curl build-essential git tor
     sudo systemctl enable --now tor.service

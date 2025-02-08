@@ -487,8 +487,13 @@ pub fn receive_and_fetch_messages(
                             continue;
                         }
 
-                        // If gui is false, skip messages containing `[IMAGE_DATA]:`
-                        if !gui && unpadded_message.contains("[IMAGE_DATA]:") {
+                        // If gui is false, skip messages containing `<media>`
+                        if !gui && unpadded_message.contains("<media>") {
+                            continue;
+                        }
+
+                        // If gui is false, skip messages containing `<pfp>`
+                        if !gui && unpadded_message.contains("<pfp>") {
                             continue;
                         }
 
