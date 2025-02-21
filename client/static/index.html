@@ -8,8 +8,21 @@
     <script src="/static/purify.min.js"></script>
     <script>
         let profilePicBase64 = "";
+        let lastNotifiedMessages = new Set();
 
-        // Handle profile picture upload
+        function showNotification(message) {
+            if (!lastNotifiedMessages.has(message) && Notification.permission === "granted") {
+                new Notification("New Message", { body: message.replace(/<strong>|<\/strong>/g, '') });
+                    lastNotifiedMessages.add(message);
+            }
+        }
+
+        function requestNotificationPermission() {
+            if (Notification.permission !== "granted") {
+                Notification.requestPermission();
+            }
+        }
+
         function handleProfilePicChange(event) {
             const file = event.target.files[0];
             if (file) {
@@ -21,35 +34,27 @@
             }
         }
 
-        // Handle media upload (image/video)
         function handleMediaChange(event) {
             const file = event.target.files[0];
             if (file) {
                 const reader = new FileReader();
                 reader.onloadend = async function () {
                     const mediaBase64 = reader.result;
-
                     let mediaMessage = { message: `<media>${mediaBase64}</media>` };
-                    
-                    // Include profile picture in media message if available
                     if (profilePicBase64) {
                         mediaMessage.message = `<pfp>${profilePicBase64}</pfp>` + mediaMessage.message;
                     }
-
-                    // Send media as a separate message
                     await fetch('/send', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(mediaMessage)
                     });
-
                     fetchMessages();
                 };
                 reader.readAsDataURL(file);
             }
         }
 
-        // Fetch messages from the server
         async function fetchMessages() {
             const response = await fetch('/messages');
             const messages = await response.json();
@@ -62,22 +67,22 @@
                 let messageText = msg.replace(/<pfp>.*?<\/pfp>/, '').replace(/<media>.*?<\/media>/, '');
                 let profilePic = "";
                 let mediaContent = "";
-
-                // Display profile picture if available
+                
                 if (pfpMatch && base64ImagePattern.test(pfpMatch[1])) {
                     profilePic = `<img src="${pfpMatch[1]}" alt="Profile Picture" style="width: 50px; height: 50px; border-radius: 50%; margin-right: 10px;">`;
                 }
 
-                // Display media as a separate full-size element
                 if (mediaMatch && (base64ImagePattern.test(mediaMatch[1]) || base64VideoPattern.test(mediaMatch[1]))) {
                     if (base64ImagePattern.test(mediaMatch[1])) {
                         mediaContent = `<div>${profilePic}<img src="${mediaMatch[1]}" alt="Media" style="width: 100%; max-width: 600px; margin-top: 10px;"></div>`;
                     } else if (base64VideoPattern.test(mediaMatch[1])) {
                         mediaContent = `<div>${profilePic}<video controls style="width: 100%; max-width: 600px; margin-top: 10px;"><source src="${mediaMatch[1]}" type="video/mp4">Your browser does not support the video tag.</video></div>`;
                     }
-                    return mediaContent;  // Media is a separate message
+                    showNotification("New media message received");
+                    return mediaContent;
                 }
 
+                showNotification(messageText);
                 return `<div style="display: flex; align-items: center; margin-bottom: 10px;">${profilePic}<p>${DOMPurify.sanitize(messageText)}</p></div>`;
             }).join('');
 
@@ -85,23 +90,18 @@
             document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
         }
 
-        // Send text message to the server
         async function sendMessage() {
             const message = document.getElementById('messageInput').value;
             if (message.trim() !== "") {
                 let messageData = { message: DOMPurify.sanitize(message) };
-
-                // Include profile picture in text message if available
                 if (profilePicBase64) {
                     messageData.message = `<pfp>${profilePicBase64}</pfp>` + messageData.message;
                 }
-
                 await fetch('/send', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(messageData)
                 });
-
                 document.getElementById('messageInput').value = '';
                 fetchMessages();
             }
@@ -117,7 +117,7 @@
         }
     </script>
 </head>
-<body onload="fetchMessages()">
+<body onload="fetchMessages(); requestNotificationPermission();">
     <div class="container">
         <div id="messages"></div>
         <div class="input-container">
@@ -130,16 +130,10 @@
     <div id="settings">
         <div class="settings-content">
             <h2>Settings</h2>
-            <!-- Hidden file input for selecting profile picture -->
             <input type="file" accept="image/*" id="profilePicInput" style="display:none;" onchange="handleProfilePicChange(event)">
-            <!-- Button that opens the file input for profile picture -->
             <button onclick="document.getElementById('profilePicInput').click()">Choose Profile Picture</button>
-
-            <!-- Hidden file input for selecting media (image or video) -->
             <input type="file" accept="image/*,video/*" id="mediaInput" style="display:none;" onchange="handleMediaChange(event)">
-            <!-- Button that opens the file input for media -->
             <button onclick="document.getElementById('mediaInput').click()">Send Media</button>
-
             <button onclick="closeSettings()">Close</button>
         </div>
     </div>
