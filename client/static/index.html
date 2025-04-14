@@ -1,141 +1,205 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amnezichat</title>
-    <link rel="stylesheet" href="/static/styles.css">
-    <script src="/static/purify.min.js"></script>
-    <script>
-        let profilePicBase64 = "";
-        let lastNotifiedMessages = new Set();
-
-        function showNotification(message) {
-            if (!lastNotifiedMessages.has(message) && Notification.permission === "granted") {
-                new Notification("New Message", { body: message.replace(/<strong>|<\/strong>/g, '') });
-                    lastNotifiedMessages.add(message);
-            }
-        }
-
-        function requestNotificationPermission() {
-            if (Notification.permission !== "granted") {
-                Notification.requestPermission();
-            }
-        }
-
-        function handleProfilePicChange(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onloadend = function () {
-                    profilePicBase64 = reader.result;
-                };
-                reader.readAsDataURL(file);
-            }
-        }
-
-        function handleMediaChange(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onloadend = async function () {
-                    const mediaBase64 = reader.result;
-                    let mediaMessage = { message: `<media>${mediaBase64}</media>` };
-                    if (profilePicBase64) {
-                        mediaMessage.message = `<pfp>${profilePicBase64}</pfp>` + mediaMessage.message;
-                    }
-                    await fetch('/send', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(mediaMessage)
-                    });
-                    fetchMessages();
-                };
-                reader.readAsDataURL(file);
-            }
-        }
-
-        async function fetchMessages() {
-            const response = await fetch('/messages');
-            const messages = await response.json();
-
-            const messageHTML = messages.map(msg => {
-                const base64ImagePattern = /^data:image\/(png|jpeg|jpg|gif);base64,/;
-                const base64VideoPattern = /^data:video\/(mp4|webm|ogg);base64,/;
-                const pfpMatch = msg.match(/<pfp>(.*?)<\/pfp>/);
-                const mediaMatch = msg.match(/<media>(.*?)<\/media>/);
-                let messageText = msg.replace(/<pfp>.*?<\/pfp>/, '').replace(/<media>.*?<\/media>/, '');
-                let profilePic = "";
-                let mediaContent = "";
-                
-                if (pfpMatch && base64ImagePattern.test(pfpMatch[1])) {
-                    profilePic = `<img src="${pfpMatch[1]}" alt="Profile Picture" style="width: 50px; height: 50px; border-radius: 50%; margin-right: 10px;">`;
-                }
-
-                if (mediaMatch && (base64ImagePattern.test(mediaMatch[1]) || base64VideoPattern.test(mediaMatch[1]))) {
-                    if (base64ImagePattern.test(mediaMatch[1])) {
-                        mediaContent = `<div>${profilePic}<img src="${mediaMatch[1]}" alt="Media" style="width: 100%; max-width: 600px; margin-top: 10px;"></div>`;
-                    } else if (base64VideoPattern.test(mediaMatch[1])) {
-                        mediaContent = `<div>${profilePic}<video controls style="width: 100%; max-width: 600px; margin-top: 10px;"><source src="${mediaMatch[1]}" type="video/mp4">Your browser does not support the video tag.</video></div>`;
-                    }
-                    showNotification("New media message received");
-                    return mediaContent;
-                }
-
-                showNotification(messageText);
-                return `<div style="display: flex; align-items: center; margin-bottom: 10px;">${profilePic}<p>${DOMPurify.sanitize(messageText)}</p></div>`;
-            }).join('');
-
-            document.getElementById('messages').innerHTML = messageHTML;
-            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
-        }
-
-        async function sendMessage() {
-            const message = document.getElementById('messageInput').value;
-            if (message.trim() !== "") {
-                let messageData = { message: DOMPurify.sanitize(message) };
-                if (profilePicBase64) {
-                    messageData.message = `<pfp>${profilePicBase64}</pfp>` + messageData.message;
-                }
-                await fetch('/send', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(messageData)
-                });
-                document.getElementById('messageInput').value = '';
-                fetchMessages();
-            }
-        }
-
-        function toggleSettings() {
-            const modal = document.getElementById('settings');
-            modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
-        }
-
-        function closeSettings() {
-            document.getElementById('settings').style.display = 'none';
-        }
-    </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Amnezichat</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script src="/static/purify.min.js"></script>
 </head>
-<body onload="fetchMessages(); requestNotificationPermission();">
-    <div class="container">
-        <div id="messages"></div>
-        <div class="input-container">
-            <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
-            <button id="settingsButton" onclick="toggleSettings()">Settings</button>
-            <button onclick="sendMessage()">Send</button>
-        </div>
+<body onload="fetchMessages(); requestNotificationPermission(); setInterval(fetchMessages, 3000);">
+  <div class="container">
+    <div id="messages"></div>
+    <div class="input-container">
+      <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off" />
+      <button onclick="sendMessage()">Send</button>
+      <button onclick="toggleSettings()">Settings</button>
     </div>
+  </div>
 
-    <div id="settings">
-        <div class="settings-content">
-            <h2>Settings</h2>
-            <input type="file" accept="image/*" id="profilePicInput" style="display:none;" onchange="handleProfilePicChange(event)">
-            <button onclick="document.getElementById('profilePicInput').click()">Choose Profile Picture</button>
-            <input type="file" accept="image/*,video/*" id="mediaInput" style="display:none;" onchange="handleMediaChange(event)">
-            <button onclick="document.getElementById('mediaInput').click()">Send Media</button>
-            <button onclick="closeSettings()">Close</button>
-        </div>
+  <div id="settings">
+    <div class="settings-content">
+      <h2>Settings</h2>
+      <input type="file" accept="image/*" id="profilePicInput" style="display:none;" onchange="handleProfilePicChange(event)" />
+      <button onclick="document.getElementById('profilePicInput').click()">Choose Profile Picture</button>
+      <input type="file" accept="image/*,video/*" id="mediaInput" style="display:none;" onchange="handleMediaChange(event)" />
+      <button onclick="document.getElementById('mediaInput').click()">Send Media</button>
+      <button onclick="toggleTheme()">Toggle Light/Dark Mode</button>
+      <button onclick="closeSettings()">Close</button>
     </div>
+  </div>
+
+  <!-- Media Modal -->
+  <div id="mediaModal" onclick="closeMediaModal()">
+    <span class="close-btn" onclick="closeMediaModal(); event.stopPropagation();">&times;</span>
+  </div>
+
+  <script>
+    let profilePicBase64 = localStorage.getItem("profilePic") || "";
+    let lastNotifiedMessages = new Set();
+
+    function showNotification(message) {
+      if (!lastNotifiedMessages.has(message) && Notification.permission === "granted") {
+        new Notification("New Message", {
+          body: message.replace(/<strong>|<\/strong>/g, '')
+        });
+        lastNotifiedMessages.add(message);
+      }
+    }
+
+    function requestNotificationPermission() {
+      if (Notification.permission !== "granted") {
+        Notification.requestPermission();
+      }
+    }
+
+    function handleProfilePicChange(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          profilePicBase64 = reader.result;
+          localStorage.setItem("profilePic", profilePicBase64);
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function handleMediaChange(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const mediaBase64 = reader.result;
+          let message = `<pfp>${profilePicBase64}</pfp><media>${mediaBase64}</media>`;
+
+          await fetch('/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+          });
+
+          fetchMessages();
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    async function fetchMessages() {
+      const res = await fetch('/messages');
+      const messages = await res.json();
+      const messagesDiv = document.getElementById('messages');
+
+      const base64Img = /^data:image\/(png|jpeg|jpg|gif|svg\+xml);base64,/;
+      const base64Vid = /^data:video\/(mp4|webm|ogg);base64,/;
+
+      messagesDiv.innerHTML = messages.map(msg => {
+        const pfpMatch = msg.match(/<pfp>(.*?)<\/pfp>/);
+        const mediaMatch = msg.match(/<media>(.*?)<\/media>/);
+        const messageText = msg.replace(/<pfp>.*?<\/pfp>/, '').replace(/<media>.*?<\/media>/, '').trim();
+
+        const profilePicSrc = pfpMatch && base64Img.test(pfpMatch[1])
+          ? pfpMatch[1]
+          : '/static/default_pfp.jpg';
+
+        const profilePic = `<img src="${profilePicSrc}" class="profile-pic" alt="Profile Picture">`;
+
+        let media = "";
+        if (mediaMatch) {
+          const src = mediaMatch[1];
+          if (base64Img.test(src)) {
+            media = `<img src="${src}" class="media-img" alt="Media" onclick="openMediaModal('${src}', false)">`;
+          } else if (base64Vid.test(src)) {
+            media = `<video class="media-video" controls onclick="openMediaModal('${src}', true)"><source src="${src}" type="video/mp4">Your browser does not support video.</video>`;
+          }
+        }
+
+        showNotification(messageText || 'New media message');
+
+        return `
+          <div class="message-row">
+            ${profilePic}
+            <div class="message-bubble">
+              ${messageText ? `<p>${DOMPurify.sanitize(messageText)}</p>` : ''}
+              ${media}
+            </div>
+          </div>`;
+      }).join('');
+
+      messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const msg = input.value.trim();
+
+      // Skip sending if message is truly empty
+      if (!msg) return;
+
+      const sanitizedMsg = DOMPurify.sanitize(msg);
+      const message = `<pfp>${profilePicBase64}</pfp>${sanitizedMsg}`;
+
+      await fetch('/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+
+      input.value = '';
+      fetchMessages();
+    }
+
+
+    function toggleSettings() {
+      const modal = document.getElementById('settings');
+      modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    function closeSettings() {
+      document.getElementById('settings').style.display = 'none';
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('light-theme');
+    }
+
+    function openMediaModal(src, isVideo = false) {
+      const modal = document.getElementById("mediaModal");
+      modal.innerHTML = `<span class="close-btn" onclick="closeMediaModal(); event.stopPropagation();">&times;</span>`;
+
+      if (isVideo) {
+        const video = document.createElement('video');
+        video.controls = true;
+        video.src = src;
+        video.autoplay = true;
+        video.style.maxWidth = '90%';
+        video.style.maxHeight = '90%';
+        video.style.borderRadius = '10px';
+        modal.appendChild(video);
+      } else {
+        const img = document.createElement('img');
+        img.src = src;
+        img.style.maxWidth = '90%';
+        img.style.maxHeight = '90%';
+        img.style.borderRadius = '10px';
+        modal.appendChild(img);
+      }
+
+      modal.style.display = "flex";
+    }
+
+    function closeMediaModal() {
+      const modal = document.getElementById("mediaModal");
+      modal.style.display = "none";
+      modal.innerHTML = `<span class="close-btn" onclick="closeMediaModal(); event.stopPropagation();">&times;</span>`;
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const savedPic = localStorage.getItem("profilePic");
+      if (savedPic) {
+        profilePicBase64 = savedPic;
+      }
+    });
+  </script>
 </body>
 </html>

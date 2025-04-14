@@ -118,21 +118,17 @@ pub fn generate_dilithium_keys(sigalg: &Sig) -> Result<(sig::PublicKey, sig::Sec
     Ok((sig_pk, sig_sk))
 }
 
-/// Returns a tuple containing serialized signing key and verifying key.
 pub fn generate_eddsa_keys() -> (Ed25519PrivateKey, Ed25519PublicKey) {
-    // Create a cryptographically secure pseudorandom number generator.
+
     let mut csprng = OsRng;
 
-    // Generate 32 random bytes for the private key.
     let mut secret_key_bytes = [0u8; 32];
     csprng.fill_bytes(&mut secret_key_bytes);
 
-    // Create the signing key from the random bytes.
     let signing_key = Ed25519PrivateKey::from_bytes(&secret_key_bytes);
 
-    // Serialize the signing key and verifying key to byte arrays.
-    let signing_key_bytes = signing_key.clone().to_bytes(); // 32 bytes (private key)
-    let verifying_key_bytes = signing_key.verifying_key(); // 32 bytes (public key)
+    let signing_key_bytes = signing_key.clone().to_bytes(); 
+    let verifying_key_bytes = signing_key.verifying_key(); 
 
     (signing_key_bytes.into(), verifying_key_bytes)
 }
@@ -142,7 +138,7 @@ pub fn key_operations_dilithium(
     username: &str,
     password: &str,
 ) -> Result<(PublicKey, SecretKey), Box<dyn std::error::Error>> {
-    // Check if we have already saved keys for the given username; if not, generate and save them
+
     match load_dilithium_keys_from_file(sigalg, username, password) {
         Ok((pk, sk)) => {
             println!("Loaded {}'s Dilithium5 keys from file.", username);
@@ -151,11 +147,10 @@ pub fn key_operations_dilithium(
         Err(_) => {
             let (pk, sk) = generate_dilithium_keys(sigalg)?;
 
-            // Handle save result
             if let Err(e) = save_dilithium_keys_to_file(&pk, &sk, username, password) {
-                // Log or handle the error appropriately
+
                 println!("Error saving Dilithium5 keys for {}: {}", username, e);
-                // Depending on your requirement, you may want to propagate this error or return a success anyway
+
                 return Err(Box::new(e));
             }
 
@@ -164,34 +159,30 @@ pub fn key_operations_dilithium(
     }
 }
 
-
 pub fn key_operations_eddsa(
     username: &str,
     password: &str,
 ) -> Result<(Ed25519PrivateKey, [u8; 32]), Box<dyn std::error::Error>> {
-    // Try to load the keys, expecting Result type from load_eddsa_keys
+
     let result = load_eddsa_keys(username, password);
 
-    // If loading fails, generate and save new keys, otherwise return the loaded keys
     match result {
         Ok((sk, pk)) => {
-            // Successfully loaded keys
+
             println!("Loaded {}'s EdDSA keys from file.", username);
-            Ok((sk, pk.to_bytes()))  // Return public key and private key bytes
+            Ok((sk, pk.to_bytes()))  
         },
         Err(_) => {
-            // If loading failed, generate new keys and save them
+
             let (sk, pk) = generate_eddsa_keys();
 
-            // Handle save result
             if let Err(e) = save_eddsa_keys(username, &sk, &pk, password) {
-                // Log or handle the error appropriately
+
                 println!("Error saving EdDSA keys for {}: {}", username, e);
-                // Depending on your requirement, you may want to propagate this error or return a success anyway
+
                 return Err(Box::new(e));
             }
 
-            // Return the newly generated keys
             Ok((sk, pk.to_bytes()))
         }
     }

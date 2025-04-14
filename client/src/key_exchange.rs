@@ -13,16 +13,15 @@ pub fn kyber_key_exchange(
     room_id: &str,
     dilithium_pks: &[oqs::sig::PublicKey],
     dilithium_sk: &oqs::sig::SecretKey,
-    server_url: &str, // Added server URL parameter
+    server_url: &str, 
 ) -> Result<String, Box<dyn Error>> {
-    // Initialize KEM (Kyber1024)
+
     let kemalg = Kem::new(Algorithm::Kyber1024)?;
 
-    // Generate the key pair once at the start (for both Alice and Bob)
     let (kem_pk, kem_sk) = kemalg.keypair()?;
     let kem_pk_hex = hex::encode(kem_pk.as_ref());
 
-    let public_key = fetch_kyber_pubkey(room_id, server_url); // Pass server_url
+    let public_key = fetch_kyber_pubkey(room_id, server_url); 
     let is_alice = match public_key {
         Some(ref key) if !key.is_empty() => {
             println!("Fetched public key: {}", key);
@@ -30,22 +29,20 @@ pub fn kyber_key_exchange(
         }
         _ => {
             println!("No valid public key found. Sending own Kyber public key.");
-            send_kyber_pubkey(room_id, &kem_pk_hex, server_url); // Pass server_url
+            send_kyber_pubkey(room_id, &kem_pk_hex, server_url); 
             true
         }
     };
 
     let shared_secret_result = if is_alice {
-        let ciphertext = fetch_ciphertext(room_id, server_url); // Pass server_url
-        // Find the "-----BEGIN SIGNATURE-----" delimiter
+        let ciphertext = fetch_ciphertext(room_id, server_url); 
+
         let start_pos = ciphertext.find("-----BEGIN SIGNATURE-----").ok_or("Signature start not found")?;
-        // Extract the ciphertext before the signature part (i.e., before the "-----BEGIN SIGNATURE-----")
+
         let ciphertext_before_signature = &ciphertext[..start_pos].trim();
 
-        // If the extracted ciphertext before the signature is hex-encoded, decode it
         let decoded_ct = hex::decode(ciphertext_before_signature)?;
 
-        // Iterate over dilithium_pks to verify the signature
         let mut signature_verified = false;
         for dilithium_pk in dilithium_pks {
             if verify_signature_with_dilithium(ciphertext.as_bytes(), dilithium_pk).is_ok() {
@@ -78,11 +75,10 @@ pub fn kyber_key_exchange(
 
         let (kem_ct, shared_secret) = kemalg.encapsulate(&alice_pk_ref)?;
 
-        // Bob signs the ciphertext
         let ciphertext_signature = sign_data_with_dilithium(kem_ct.as_ref(), dilithium_sk)?;
         println!("Bob signed the ciphertext: {}", ciphertext_signature);
 
-        send_ciphertext(room_id, &ciphertext_signature, server_url); // Pass server_url
+        send_ciphertext(room_id, &ciphertext_signature, server_url); 
 
         let mut hasher = Sha3_512::new();
         hasher.update(shared_secret.as_ref());
@@ -95,7 +91,6 @@ pub fn kyber_key_exchange(
     Ok(shared_secret_result)
 }
 
-// Structures for public keys
 #[derive(Serialize, Deserialize)]
 struct Message {
     message: String,
@@ -106,67 +101,62 @@ pub fn perform_ecdh_key_exchange(
     room_id: &str,
     eddsa_sk: &Ed25519SecretKey,
     eddsa_pk: &Ed25519PublicKey,
-    server_url: &str, // Added parameter for server URL
+    server_url: &str, 
 ) -> Result<String, Box<dyn std::error::Error>> {
-    // Generate ECDH key pair using X25519 once at the start
+
     let secret_key = EphemeralSecret::random_from_rng(OsRng);
     let public_key = X25519PublicKey::from(&secret_key);
 
     let public_key_bytes = public_key.as_bytes();
 
-    // Sign the public key using EdDSA
     let signed_public_key = sign_data_with_eddsa(public_key_bytes, eddsa_sk)?;
 
-    // Format the signed public key with the proper markers
     let formatted_signed_public_key = format!("ECDH_PUBLIC_KEY:{}[END DATA]", signed_public_key);
 
-    // Check if the server URL contains `.i2p`
     let proxy = if server_url.contains(".i2p") {
-        "http://127.0.0.1:4444" // I2P Proxy address
+        "http://127.0.0.1:4444" 
     } else {
-        "socks5h://127.0.0.1:9050" // SOCKS5 Proxy address (Tor)
+        "socks5h://127.0.0.1:9050" 
     };
     let client = create_client_with_proxy(proxy);
 
     loop {
-        // Send the formatted signed public key to the server
+
         let message = Message {
             message: formatted_signed_public_key.clone(),
             room_id: room_id.to_string(),
         };
 
-        let send_url = format!("{}/send", server_url); // Use server_url for the send endpoint
+        let send_url = format!("{}/send", server_url); 
         if let Err(err) = client.post(&send_url).json(&message).timeout(Duration::from_secs(60)).send() {
             eprintln!("Failed to send signed public key to the server: {}", err);
-            continue; // Retry
+            continue; 
         } else {
             println!("Successfully sent signed public key to the server.");
         }
 
-        // Fetch the other party's signed public key
-        let fetch_url = format!("{}/messages?room_id={}", server_url, room_id); // Use server_url for the fetch endpoint
+        let fetch_url = format!("{}/messages?room_id={}", server_url, room_id); 
         let res = match client.get(&fetch_url).timeout(Duration::from_secs(60)).send() {
             Ok(response) => response,
             Err(err) => {
                 eprintln!("Failed to fetch the other party's public key: {}", err);
-                continue; // Retry
+                continue; 
             }
         };
 
         if !res.status().is_success() {
             eprintln!("Non-success status code while fetching messages: {}", res.status());
-            continue; // Retry
+            continue; 
         }
 
         let html_response = match res.text() {
             Ok(text) => text,
             Err(err) => {
                 eprintln!("Failed to read response text: {}", err);
-                continue; // Retry
+                continue; 
             }
         };
 
-        // Look for all the signed public keys in the response
         let start_tag = "ECDH_PUBLIC_KEY:";
         let end_tag = "[END DATA]";
         let mut keys_processed = false;
@@ -177,21 +167,18 @@ pub fn perform_ecdh_key_exchange(
             if let Some(end_pos) = html_response[start..].find(end_tag) {
                 let extracted_signed_key = &html_response[start..start + end_pos].trim();
 
-                // Verify the other party's public key signature
                 if let Err(err) = verify_signature_with_eddsa(extracted_signed_key, eddsa_pk) {
                     eprintln!("Failed to verify the signature: {}", err);
-                    continue; // Retry if verification fails
+                    continue; 
                 }
 
-                // If verification is successful, extract the public key and proceed
                 let extracted_key = extracted_signed_key.split("-----BEGIN SIGNATURE-----").next().unwrap().trim();
 
-                // Ignore if it's the same as our own public key
                 if extracted_key == formatted_signed_public_key {
                     println!("Ignoring our own public key.");
-                    start += end_pos + end_tag.len(); // Move past the end tag to continue searching
+                    start += end_pos + end_tag.len(); 
                     keys_processed = true;
-                    continue; // Skip processing if it's our own public key
+                    continue; 
                 }
 
                 match hex::decode(extracted_key) {
@@ -220,7 +207,6 @@ pub fn perform_ecdh_key_exchange(
                     }
                 }
 
-                // Move past the end tag
                 start += end_pos + end_tag.len();
                 keys_processed = true;
             } else {

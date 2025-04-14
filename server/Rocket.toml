@@ -3,6 +3,6 @@ address = "0.0.0.0"
 port = 8080
 
 [default.limits]
-forms = "2 MiB"
-json = "2 MiB"
-file = "2 MiB"
+forms = "5 MiB"
+json = "5 MiB"
+file = "5 MiB"

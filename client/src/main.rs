@@ -37,6 +37,9 @@ use rand::Rng;
 use reqwest::blocking::get;
 use std::fs;
 use std::fs::File;
+use std::fs::OpenOptions;
+use std::io::BufRead;
+use std::io::BufReader;
 use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
@@ -55,56 +58,123 @@ use rand::RngCore;
 use sha3::{Sha3_512, Digest};
 use ed25519_dalek::VerifyingKey as Ed25519PublicKey;
 
-// Function to get the raw bytes from PublicKey
 fn get_raw_bytes_public_key(pk: &PublicKey) -> &[u8] {
-    pk.as_ref() // Directly return the raw bytes
+    pk.as_ref() 
 }
 
-// Function to get the raw bytes from SecretKey
 fn get_raw_bytes_secret_key(sk: &SecretKey) -> &[u8] {
-    sk.as_ref() // Directly return the raw bytes
+    sk.as_ref() 
 }
 
-
-#[derive(Serialize, Deserialize, Debug)] // Make sure it can be serialized and deserialized
+#[derive(Serialize, Deserialize, Debug)] 
 struct MessageData {
     message: String,
     room_id: String,
 }
 
 fn fingerprint_dilithium_public_key(public_key: &PublicKey) -> String {
-    // Access the raw bytes of the public key using as_ref()
-    let raw_bytes = public_key.as_ref(); // This should return &[u8]
+
+    let raw_bytes = public_key.as_ref(); 
     let hashed = Sha3_512::digest(raw_bytes);
     hex::encode(hashed)
 }
 
 fn fingerprint_eddsa_public_key(public_key: &Ed25519PublicKey) -> String {
-    // Hash the public key to generate a fingerprint (using SHA-512)
+
     let hashed = Sha3_512::digest(public_key);
     hex::encode(hashed)
 }
 
-fn request_user_confirmation(fingerprint: &str, own_fingerprint: &str) -> Result<bool, io::Error> {
-    // If the fingerprint matches your own public key, auto-confirm
+fn request_user_confirmation(
+    fingerprint: &str,
+    own_fingerprint: &str,
+    password: &str,
+) -> Result<bool, io::Error> {
     if fingerprint == own_fingerprint {
+        return Ok(true);
+    }
+
+    let path = "contact_fingerprints.enc";
+
+    let trusted_fingerprints = load_trusted_fingerprints(path, password)?;
+
+    if trusted_fingerprints.contains(fingerprint) {
+        println!("Auto-trusting stored fingerprint: {}", fingerprint);
         return Ok(true);
     }
 
     println!("The fingerprint of the received public key is: {}", fingerprint);
     print!("Do you confirm this fingerprint? (yes/no): ");
     io::stdout().flush()?;
-    
+
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
     let response = input.trim().to_lowercase();
-    
+
     match response.as_str() {
-        "yes" => Ok(true),
+        "yes" => {
+            print!("Would you like to remember this fingerprint for future sessions? (yes/no): ");
+            io::stdout().flush()?;
+
+            input.clear();
+            io::stdin().read_line(&mut input)?;
+            let remember_response = input.trim().to_lowercase();
+
+            if remember_response == "yes" {
+                save_fingerprint(path, fingerprint, password)?;
+            }
+
+            Ok(true)
+        }
         "no" => Ok(false),
         _ => {
             println!("Invalid input. Please enter 'yes' or 'no'.");
-            request_user_confirmation(fingerprint, own_fingerprint) // Retry if invalid input
+            request_user_confirmation(fingerprint, own_fingerprint, password)
+        }
+    }
+}
+
+fn load_trusted_fingerprints<P: AsRef<Path>>(
+    path: P,
+    password: &str
+) -> Result<HashSet<String>, io::Error> {
+    let mut set = HashSet::new();
+
+    if let Ok(file) = File::open(&path) {
+        for line in BufReader::new(file).lines() {
+            if let Ok(encrypted_line) = line {
+                match decrypt_data(&encrypted_line, password) {
+                    Ok(fingerprint) => {
+                        set.insert(fingerprint);
+                    }
+                    Err(err) => {
+                        eprintln!("Warning: Could not decrypt a line in fingerprint file: {}", err);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(set)
+}
+
+fn save_fingerprint<P: AsRef<Path>>(
+    path: P,
+    fingerprint: &str,
+    password: &str
+) -> Result<(), io::Error> {
+    match encrypt_data(fingerprint, password) {
+        Ok(encrypted) => {
+            let mut file = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)?;
+            writeln!(file, "{}", encrypted)?;
+            Ok(())
+        }
+        Err(e) => {
+            eprintln!("Encryption error: {}", e);
+            Err(io::Error::new(io::ErrorKind::Other, "Failed to encrypt fingerprint"))
         }
     }
 }
@@ -152,7 +222,7 @@ fn resolve_dns(host: &str) -> Result<String, Box<dyn Error>> {
 
     if output.status.success() {
         let response = String::from_utf8_lossy(&output.stdout);
-        // Find the first valid IP address in the response
+
         if let Some(ip) = response
             .lines()
             .filter(|line| line.parse::<std::net::IpAddr>().is_ok())
@@ -166,13 +236,12 @@ fn resolve_dns(host: &str) -> Result<String, Box<dyn Error>> {
 }
 
 fn is_ip_blacklisted(ip: &str, blacklist: &HashSet<IpNetwork>) -> bool {
-    // Try to parse the IP address. If it fails, return false.
+
     let ip: std::net::IpAddr = match ip.parse() {
         Ok(ip) => ip,
-        Err(_) => return false,  // Return false if parsing fails
+        Err(_) => return false,  
     };
 
-    // Check if the IP is within any of the CIDR ranges in the blacklist
     blacklist.iter().any(|range| range.contains(ip))
 }
 
@@ -182,34 +251,23 @@ fn pad_message(message: &str, max_length: usize) -> String {
     if current_length < max_length {
         let padding_len = max_length - current_length;
 
-        let mut rng = OsRng;  // Cryptographically secure RNG
+        let mut rng = OsRng;  
         let padding: String = (0..padding_len)
-            .map(|_| rng.gen_range(33..127) as u8 as char) // ASCII printable characters range
+            .map(|_| rng.gen_range(33..127) as u8 as char) 
             .collect();
 
-        // Wrap the padding in <padding> and </padding> tags
         return format!("{}<padding>{}</padding>", message, padding);
     }
 
-    message.to_string()  // Return the message as is if it's already at max length
+    message.to_string()  
 }
 
-// The main function
 fn main() -> Result<(), Box<dyn Error>> {
     use std::sync::{Arc, Mutex};
     use std::{io::{self, Write}, thread, time::Duration};
 
     let sigalg = sig::Sig::new(sig::Algorithm::Dilithium5)?;
 
-    // Get user input for the choice of interface
-    let mut input = String::new();
-    print!("Choose interface (CLI or GUI): ");
-    io::stdout().flush()?;
-    io::stdin().read_line(&mut input)?;
-    let interface_choice = input.trim().to_string();
-    input.clear();
-
-    // Step 1: Ask user to either create a room ID or join one
     println!("Would you like to create a new room or join an existing one?");
     println!("Type 'create' to create a new room or 'join' to join an existing one.");
     let mut choice = String::new();
@@ -234,19 +292,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-
-    // Check if cloudflare-ip-blacklist.txt exists in the current directory
     let blacklist_file = "cloudflare-ip-blacklist.txt";
     if !Path::new(blacklist_file).exists() {
         println!("File '{}' not found. Fetching from Codeberg...", blacklist_file);
 
-        // Fetch the blacklist file from the raw Codeberg URL
-        let url = "https://codeberg.org/umutcamliyurt/Amnezichat/raw/branch/main/client/cloudflare-ip-blacklist.txt"; // Replace with actual URL
+        let url = "https://codeberg.org/umutcamliyurt/Amnezichat/raw/branch/main/client/cloudflare-ip-blacklist.txt";
         let response = get(url)?;
 
         if response.status().is_success() {
             let content = response.text()?;
-            // Save the fetched content to cloudflare-ip-blacklist.txt in the current directory
+
             let mut file = File::create(blacklist_file)?;
             file.write_all(content.as_bytes())?;
             println!("File fetched and saved as '{}'.", blacklist_file);
@@ -256,10 +311,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    // Load the blacklist from the file
     let blacklist = load_blacklist("cloudflare-ip-blacklist.txt");
 
-    // Get the server URL
     let mut input = String::new();
     print!("Enter the server URL: ");
     io::stdout().flush()?;
@@ -275,19 +328,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("This is an .i2p site. Skipping IP check.");
     } 
     else {
-        // Extract the host portion of the URL
+
         let host = url
             .split('/')
             .nth(2)
-            .unwrap_or(&url) // Extract the host portion
+            .unwrap_or(&url) 
             .split(':')
             .next()
             .unwrap_or(&url);
 
-        // Resolve IP of the host
         match resolve_dns(host) {
             Ok(ip) => {
-                // Check if the resolved IP is blacklisted
+
                 if is_ip_blacklisted(&ip, &blacklist) {
                     println!("WARNING! The IP {} is in the blacklist.", ip);
                     println!("The server you're trying to access is behind a Cloudflare reverse proxy.");
@@ -308,20 +360,20 @@ fn main() -> Result<(), Box<dyn Error>> {
                     println!("For more info: https://git.calitabby.net/mirrors/deCloudflare");
                     println!();
                     println!("Do you want to proceed? (yes/no)");
-                
+
                     let mut input = String::new();
                     io::stdin()
                         .read_line(&mut input)
                         .expect("Failed to read input");
                     let input = input.trim().to_lowercase();
-                
+
                     match input.as_str() {
                         "yes" | "y" => {
                             println!("Proceeding...");
                         }
                         "no" | "n" => {
                             println!("Operation aborted!");
-                            return Ok(()); // Exit the main function, effectively closing the app
+                            return Ok(()); 
                         }
                         _ => {
                             println!("Invalid input. Please enter 'yes' or 'no'.");
@@ -335,7 +387,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    // Get the username
     print!("Enter your username: ");
     io::stdout().flush()?;
     io::stdin().read_line(&mut input)?;
@@ -352,60 +403,52 @@ fn main() -> Result<(), Box<dyn Error>> {
     let is_group_chat = is_group_chat.trim().to_lowercase() == "yes";
 
     let room_password = if is_group_chat {
-        // Loop to get a valid room password for group chat
+
         loop {
             print!("Enter room password (must be longer than 8 characters): ");
-            io::stdout().flush()?; // Ensure the prompt is displayed immediately
+            io::stdout().flush()?; 
             let mut input = String::new();
             io::stdin().read_line(&mut input)?;
             let password_input = input.trim();
             if password_input.len() > 8 {
-                break password_input.to_string(); // Exit the loop with valid password
+                break password_input.to_string(); 
             } else {
                 println!("Error: Password must be longer than 8 characters. Please try again.");
             }
         }
     } else {
-        // For one-to-one chat, skip password setup
+
         String::new()
     };
 
-    // Derive the key from the room password if it's a group chat
     let room_password = if is_group_chat {
         let salt = derive_salt_from_password(&room_password);
         let key = derive_key(&room_password, &salt);
         hex::encode(key)
     } else {
-        String::new() // No room password required for one-to-one chat
+        String::new() 
     };
 
-    // Skip key exchange and create hybrid_shared_secret if it's a group chat
     if is_group_chat {
         println!("Skipping key exchange. Using room password as shared secret.");
-        let hybrid_shared_secret = room_password.clone();  // Use room password directly
+        let hybrid_shared_secret = room_password.clone();  
         println!("Shared secret established.");
         println!("You can now start messaging!");
 
-        // Shared data setup for messaging
         let shared_hybrid_secret = Arc::new(hybrid_shared_secret.clone());
         let shared_room_id = Arc::new(Mutex::new(room_id.clone()));
         let shared_url = Arc::new(Mutex::new(url.clone()));
-
-        // Clone interface_choice before passing to thread
-        let interface_choice_clone = interface_choice.clone();  // Clone interface_choice
 
         let random_data_thread = {
             let shared_room_id = Arc::clone(&shared_room_id);
             let shared_url = Arc::clone(&shared_url);
             let shared_hybrid_secret = Arc::clone(&shared_hybrid_secret);
-        
+
             thread::spawn(move || loop {
-                // Generate cryptographically secure random data
-                let mut random_data = vec![0u8; OsRng.next_u32() as usize % 2048 + 1]; // Random size between 1 and 2048
+                let mut random_data = vec![0u8; OsRng.next_u32() as usize % 2048 + 1];
                 OsRng.fill_bytes(&mut random_data);
-        
+
                 let dummy_message = format!("[DUMMY_DATA]: {:?}", random_data);
-        
                 let encrypted_dummy_message = match encrypt_data(&dummy_message, &shared_hybrid_secret) {
                     Ok(data) => data,
                     Err(e) => {
@@ -413,111 +456,56 @@ fn main() -> Result<(), Box<dyn Error>> {
                         continue;
                     }
                 };
-        
+
                 let room_id_locked = shared_room_id.lock().unwrap();
                 let url_locked = shared_url.lock().unwrap();
-
-                // Pad the message to a fixed length (e.g., 2048 bytes)
                 let padded_message = pad_message(&encrypted_dummy_message, 2048);
-        
+
                 if let Err(e) = send_encrypted_message(&padded_message, &room_id_locked, &url_locked) {
                     eprintln!("Error sending dummy message: {}", e);
                 }
-        
-                // Sleep for a random interval (1 to 120 seconds)
-                let sleep_duration = Duration::from_secs(OsRng.next_u32() as u64 % 120 + 1);
-                thread::sleep(sleep_duration);
+
+                thread::sleep(Duration::from_secs(OsRng.next_u32() as u64 % 120 + 1));
             })
         };
 
-        // Spawn message fetch thread
         let fetch_thread = thread::spawn({
             let shared_hybrid_secret = Arc::clone(&shared_hybrid_secret);
             let shared_room_id = Arc::clone(&shared_room_id);
             let shared_url = Arc::clone(&shared_url);
-            let interface_choice_clone = interface_choice_clone.clone();  // Clone here as well
 
             move || loop {
-                // Lock the shared resources to access their values
                 let room_id_locked = shared_room_id.lock().unwrap().clone();
                 let url_locked = shared_url.lock().unwrap().clone();
 
-                // Fetch and process messages
                 match receive_and_fetch_messages(
                     &room_id_locked,
                     &shared_hybrid_secret,
                     &url_locked,
-                    interface_choice_clone.to_lowercase() == "gui", // Pass true for GUI, false for CLI
+                    true, 
                 ) {
-                    Ok(messages) => {
-                        // Print messages only if interface is CLI
-                        if interface_choice_clone.to_lowercase() == "cli" {
-                            for message in messages {
-                                println!("{}", message);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Error fetching messages: {}", e);
-                    }
+                    Ok(_) => {}
+                    Err(e) => eprintln!("Error fetching messages: {}", e),
                 }
 
-                // Sleep for 10 seconds before the next fetch
                 thread::sleep(Duration::from_secs(10));
             }
         });
 
+        let rt = rocket::tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let app = MessagingApp::new(
+                username,
+                shared_hybrid_secret,
+                Arc::clone(&shared_room_id),
+                Arc::clone(&shared_url),
+            );
 
-        // Handle GUI or CLI messaging
-        if interface_choice.to_lowercase() == "gui" {
-            let rt = rocket::tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async {
-                // Wrap only for passing to run_gui
-                let shared_hybrid_secret_for_gui = shared_hybrid_secret;
-        
-                // Correctly clone Arc<Mutex<String>> instead of Arc<String>
-                let shared_room_id_for_gui: Arc<Mutex<String>> = Arc::clone(&shared_room_id);
-                let shared_url_for_gui: Arc<Mutex<String>> = Arc::clone(&shared_url);
-        
-                // Pass the arguments
-                let app = MessagingApp::new(
-                    username,
-                    shared_hybrid_secret_for_gui,
-                    shared_room_id_for_gui,
-                    shared_url_for_gui,
-                );
-        
-                // Await the async launch function
-                if let Err(e) = create_rocket(app).launch().await {
-                    eprintln!("Rocket server failed: {}", e);
-                }
-            });
-            
-        } else {
-            loop {
-                let mut message = String::new();
-                print!("Enter your message (or type 'exit' to quit): ");
-                io::stdout().flush()?;
-                io::stdin().read_line(&mut message)?;
-
-                let message = message.trim();
-
-                if message == "exit" {
-                    println!("Exiting messaging session.");
-                    break;
-                }
-
-                let message = format!("<strong>{}</strong>: {}", username, message);
-
-                // Pad the message to a fixed length (e.g., 2048 bytes)
-                let padded_message = pad_message(&message, 2048);
-
-                let encrypted_message = encrypt_data(&padded_message, &hybrid_shared_secret)?;
-                send_encrypted_message(&encrypted_message, &room_id, &url)?;
+            if let Err(e) = create_rocket(app).launch().await {
+                eprintln!("Rocket server failed: {}", e);
             }
-        }
+        });
 
-        // Ensure both threads terminate gracefully
         if let Err(e) = random_data_thread.join() {
             eprintln!("Random data thread terminated with error: {:?}", e);
         }
@@ -529,8 +517,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    // Continue with the key exchange process for one-to-one chat
-    // Step 2: Load or generate Dilithium5 and EdDSA keys for the user
     let dilithium_keys = key_operations_dilithium(&sigalg, &username, &private_password);
     let Ok((dilithium_pk, dilithium_sk)) = dilithium_keys else { todo!() };
 
@@ -566,35 +552,32 @@ fn main() -> Result<(), Box<dyn Error>> {
     while all_other_dilithium_keys.len() < 1 {
         println!("Waiting for Dilithium public key...");
         thread::sleep(Duration::from_secs(5));
-    
+
         let encoded_other_dilithium_pks = fetch_dilithium_pubkeys(&room_id, &url);
-    
+
         for encoded_pk in encoded_other_dilithium_pks {
             if let Ok(decoded_pk) = hex::decode(&encoded_pk) {
-    
-                // Create a Sig instance for the "Dilithium5" algorithm
+
                 let algorithm = SigAlgorithm::Dilithium5;
-    
-                // Create a Sig instance for the chosen algorithm
+
                 let sig = Sig::new(algorithm).map_err(|_| "Failed to initialize signature scheme")?;
-    
-                // Convert the decoded public key to a PublicKey using public_key_from_bytes
+
                 if let Some(public_key_ref) = sig.public_key_from_bytes(&decoded_pk) {
-                    // Convert PublicKeyRef<'_> to PublicKey by calling to_owned()
+
                     let public_key = public_key_ref.to_owned();
-    
+
                     let fetched_fingerprint = fingerprint_dilithium_public_key(&public_key);
-    
+
                     if fetched_fingerprint == fingerprint_dilithium {
                         continue;
                     }
-    
+
                     if processed_fingerprints.contains(&fetched_fingerprint) {
                         continue;
                     }
-    
-                    if request_user_confirmation(&fetched_fingerprint, &fingerprint_dilithium)? {
-                        // Push the owned PublicKey to the list
+
+                    if request_user_confirmation(&fetched_fingerprint, &fingerprint_dilithium, &private_password)? {
+
                         all_other_dilithium_keys.push(public_key);
                         processed_fingerprints.insert(fetched_fingerprint);
                     } else {
@@ -608,8 +591,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
-    
-    
 
     println!("Received Dilithium5 public key from the server.");
 
@@ -636,7 +617,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         continue;
                     }
 
-                    if request_user_confirmation(&fetched_fingerprint, &fingerprint_eddsa)? {
+                    if request_user_confirmation(&fetched_fingerprint, &fingerprint_eddsa, &private_password)? {
                         eddsa_key = Some(public_key);
                         processed_fingerprints.insert(fetched_fingerprint);
                         break;
@@ -668,159 +649,98 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Hybrid shared secret established.");
     println!("You can now start messaging!");
-    
-    let shared_hybrid_secret = Arc::new(hybrid_shared_secret.clone());  // Keep as Arc<String>
-    let shared_room_id = Arc::new(Mutex::new(room_id.clone()));  // Wrap in Mutex
-    let shared_url = Arc::new(Mutex::new(url.clone()));  // Wrap in Mutex
-    
-    let interface_choice_clone = interface_choice.clone();  // Clone interface_choice before moving it into the thread
-    
-    let random_data_thread = {
-        let shared_room_id = Arc::clone(&shared_room_id);
-        let shared_url = Arc::clone(&shared_url);
-        let shared_hybrid_secret = Arc::clone(&shared_hybrid_secret);
-    
-        thread::spawn(move || loop {
-            // Generate cryptographically secure random data
-            let mut random_data = vec![0u8; OsRng.next_u32() as usize % 2048 + 1]; // Random size between 1 and 2048
-            OsRng.fill_bytes(&mut random_data);
-    
-            let dummy_message = format!("[DUMMY_DATA]: {:?}", random_data);
 
-            // Pad the message to a fixed length (e.g., 2048 bytes)
-            let padded_message = pad_message(&dummy_message, 2048);
-    
-            let encrypted_dummy_message = match encrypt_data(&padded_message, &shared_hybrid_secret) {
-                Ok(data) => data,
-                Err(e) => {
-                    eprintln!("Error encrypting dummy message: {}", e);
-                    continue;
-                }
-            };
-    
-            let room_id_locked = shared_room_id.lock().unwrap();
-            let url_locked = shared_url.lock().unwrap();
-    
-            if let Err(e) = send_encrypted_message(&encrypted_dummy_message, &room_id_locked, &url_locked) {
-                eprintln!("Error sending dummy message: {}", e);
+let shared_hybrid_secret = Arc::new(hybrid_shared_secret.clone());
+let shared_room_id = Arc::new(Mutex::new(room_id.clone()));
+let shared_url = Arc::new(Mutex::new(url.clone()));
+
+let random_data_thread = {
+    let shared_room_id = Arc::clone(&shared_room_id);
+    let shared_url = Arc::clone(&shared_url);
+    let shared_hybrid_secret = Arc::clone(&shared_hybrid_secret);
+
+    thread::spawn(move || loop {
+        let mut random_data = vec![0u8; OsRng.next_u32() as usize % 2048 + 1];
+        OsRng.fill_bytes(&mut random_data);
+
+        let dummy_message = format!("[DUMMY_DATA]: {:?}", random_data);
+        let padded_message = pad_message(&dummy_message, 2048);
+        let encrypted_dummy_message = match encrypt_data(&padded_message, &shared_hybrid_secret) {
+            Ok(data) => data,
+            Err(e) => {
+                eprintln!("Error encrypting dummy message: {}", e);
+                continue;
             }
-    
-            // Sleep for a random interval (1 to 120 seconds)
-            let sleep_duration = Duration::from_secs(OsRng.next_u32() as u64 % 120 + 1);
-            thread::sleep(sleep_duration);
-        })
-    };
-    
-    // Spawn message fetch thread
-    let fetch_thread = thread::spawn({
-        let shared_hybrid_secret = Arc::clone(&shared_hybrid_secret);
-        let shared_room_id = Arc::clone(&shared_room_id);
-        let shared_url = Arc::clone(&shared_url);
-        let interface_choice_clone = interface_choice_clone.clone();  // Clone here as well
+        };
 
-        move || loop {
-            // Lock the shared resources to access their values
-            let room_id_locked = shared_room_id.lock().unwrap().clone();
-            let url_locked = shared_url.lock().unwrap().clone();
+        let room_id_locked = shared_room_id.lock().unwrap();
+        let url_locked = shared_url.lock().unwrap();
 
-            // Fetch and process messages
-            match receive_and_fetch_messages(
-                &room_id_locked,
-                &shared_hybrid_secret,
-                &url_locked,
-                interface_choice_clone.to_lowercase() == "gui", // Pass true for GUI, false for CLI
-            ) {
-                Ok(messages) => {
-                    // Print messages only if interface is CLI
-                    if interface_choice_clone.to_lowercase() == "cli" {
-                        for message in messages {
-                            println!("{}", message);
-                        }
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Error fetching messages: {}", e);
-                }
-            }
-
-            // Sleep for 10 seconds before the next fetch
-            thread::sleep(Duration::from_secs(10));
+        if let Err(e) = send_encrypted_message(&encrypted_dummy_message, &room_id_locked, &url_locked) {
+            eprintln!("Error sending dummy message: {}", e);
         }
-    });
-    
-    
-    if interface_choice.to_lowercase() == "gui" {
-        let rt = rocket::tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            // Wrap only for passing to run_gui
-            let shared_hybrid_secret_for_gui = shared_hybrid_secret;
-    
-            // Correctly clone Arc<Mutex<String>> instead of Arc<String>
-            let shared_room_id_for_gui: Arc<Mutex<String>> = Arc::clone(&shared_room_id);
-            let shared_url_for_gui: Arc<Mutex<String>> = Arc::clone(&shared_url);
-    
-            // Pass the arguments
-            let app = MessagingApp::new(
-                username,
-                shared_hybrid_secret_for_gui,
-                shared_room_id_for_gui,
-                shared_url_for_gui,
-            );
-    
-            // Await the async launch function
-            if let Err(e) = create_rocket(app).launch().await {
-                eprintln!("Rocket server failed: {}", e);
-            }
-        });
-    
-    } else {
-        loop {
-            let mut message = String::new();
-            print!("Enter your message (or type 'exit' to quit): ");
-            io::stdout().flush()?;
-            io::stdin().read_line(&mut message)?;
-    
-            let message = message.trim();
-    
-            if message == "exit" {
-                println!("Exiting messaging session.");
-                break;
-            }
-    
-            let message = format!("<strong>{}</strong>: {}", username, message);
 
-            // Pad the message to a fixed length (e.g., 2048 bytes)
-            let padded_message = pad_message(&message, 2048);
-    
-            let encrypted_message = encrypt_data(&padded_message, &hybrid_shared_secret)?;
-            send_encrypted_message(&encrypted_message, &room_id, &url)?;
+        thread::sleep(Duration::from_secs(OsRng.next_u32() as u64 % 120 + 1));
+    })
+};
+
+let fetch_thread = thread::spawn({
+    let shared_hybrid_secret = Arc::clone(&shared_hybrid_secret);
+    let shared_room_id = Arc::clone(&shared_room_id);
+    let shared_url = Arc::clone(&shared_url);
+
+    move || loop {
+        let room_id_locked = shared_room_id.lock().unwrap().clone();
+        let url_locked = shared_url.lock().unwrap().clone();
+
+        match receive_and_fetch_messages(
+            &room_id_locked,
+            &shared_hybrid_secret,
+            &url_locked,
+            true, 
+        ) {
+            Ok(_) => {}
+            Err(e) => eprintln!("Error fetching messages: {}", e),
         }
-    }
-    
-    // Ensure both threads terminate gracefully
-    if let Err(e) = random_data_thread.join() {
-        eprintln!("Random data thread terminated with error: {:?}", e);
-    }
 
-    if let Err(e) = fetch_thread.join() {
-        eprintln!("Fetch thread terminated with error: {:?}", e);
+        thread::sleep(Duration::from_secs(10));
     }
+});
 
-    
+let rt = rocket::tokio::runtime::Runtime::new().unwrap();
+rt.block_on(async {
+    let app = MessagingApp::new(
+        username,
+        shared_hybrid_secret,
+        Arc::clone(&shared_room_id),
+        Arc::clone(&shared_url),
+    );
+
+    if let Err(e) = create_rocket(app).launch().await {
+        eprintln!("Rocket server failed: {}", e);
+    }
+});
+
+if let Err(e) = random_data_thread.join() {
+    eprintln!("Random data thread terminated with error: {:?}", e);
+}
+
+if let Err(e) = fetch_thread.join() {
+    eprintln!("Fetch thread terminated with error: {:?}", e);
+}
+
     Ok(())
 }    
 
-// Function to clear the screen before printing new messages
 fn clear_screen() {
     if cfg!(target_os = "windows") {
-        // Windows
         Command::new("cmd")
             .args(&["/C", "cls"])
             .output()
             .expect("Failed to clear screen on Windows");
     } else {
-        // Linux/macOS or others
-        print!("\x1b[2J\x1b[H");
-        std::io::stdout().flush().unwrap(); // Ensure the command is executed immediately
+        Command::new("clear")
+            .status()
+            .expect("Failed to clear screen on Unix");
     }
 }

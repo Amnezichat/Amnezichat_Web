@@ -78,13 +78,12 @@ impl MessagingApp {
 #[get("/messages")]
 async fn get_messages(app: &rocket::State<MessagingApp>) -> Json<Vec<String>> {
     let result = fetch_and_update_messages(&app).await;
-    
+
     match result {
         Ok(msgs) => Json(msgs),
         Err(e) => {
             eprintln!("Error fetching messages: {}", e);
-            
-            // Return current messages if fetching fails
+
             let msgs = app.messages.lock().unwrap_or_else(|_| panic!("Failed to lock messages"));
             Json(msgs.clone())
         }
@@ -94,7 +93,7 @@ async fn get_messages(app: &rocket::State<MessagingApp>) -> Json<Vec<String>> {
 async fn fetch_and_update_messages(app: &rocket::State<MessagingApp>) -> Result<Vec<String>, String> {
     let room_id_str = app.shared_room_id.clone();
     let url_str = app.shared_url.clone();
-    
+
     let new_messages = tokio::task::block_in_place(move || {
         receive_and_fetch_messages(
             &room_id_str,
@@ -104,7 +103,6 @@ async fn fetch_and_update_messages(app: &rocket::State<MessagingApp>) -> Result<
         )
     }).map_err(|e| format!("Error fetching messages: {}", e))?;
 
-    // Update the in-memory message storage
     let mut msgs = app.messages.lock().unwrap_or_else(|_| panic!("Failed to lock messages"));
     msgs.clear();
     msgs.extend(new_messages.clone());
@@ -117,19 +115,18 @@ async fn post_message(
     input: Json<MessageInput>,
     app: &rocket::State<MessagingApp>
 ) -> Result<&'static str, rocket::http::Status> {
-    // Create the formatted message once
+
     let formatted_message = format!("<strong>{}</strong>: {}", app.username, input.message);
     let padded_message = pad_message(&formatted_message, 2048);
 
     let result = tokio::task::block_in_place(|| {
-        // Encrypt the message
+
         let encrypted = encrypt_data(&padded_message, &app.shared_hybrid_secret)
             .map_err(|e| {
                 eprintln!("Encryption error: {}", e);
                 rocket::http::Status::InternalServerError
             })?;
-        
-        // Send the encrypted message
+
         send_encrypted_message(&encrypted, &app.shared_room_id, &app.shared_url)
             .map_err(|e| {
                 eprintln!("Error sending message: {}", e);

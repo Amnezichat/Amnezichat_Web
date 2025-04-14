@@ -6,7 +6,6 @@ use rand::RngCore;
 use sha2::{Digest, Sha256};
 use zeroize::Zeroize;
 
-/// Derive encryption key from room_id using SHA-256 (server-side encryption)
 pub fn derive_key(room_id: &str, salt: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(room_id.as_bytes());
@@ -17,7 +16,6 @@ pub fn derive_key(room_id: &str, salt: &[u8]) -> [u8; 32] {
     key
 }
 
-// Encrypt the message using ChaCha20Poly1305
 pub fn encrypt_message(plain_text: &str, room_id: &str) -> Result<String, &'static str> {
     let mut salt = [0u8; 16];
     OsRng.fill_bytes(&mut salt);
@@ -43,7 +41,6 @@ pub fn encrypt_message(plain_text: &str, room_id: &str) -> Result<String, &'stat
     ))
 }
 
-// Decrypt the message using ChaCha20Poly1305
 pub fn decrypt_message(encrypted_text: &str, room_id: &str) -> Result<String, &'static str> {
     let parts: Vec<&str> = encrypted_text.split(':').collect();
     if parts.len() != 3 {
@@ -69,7 +66,7 @@ pub fn decrypt_message(encrypted_text: &str, room_id: &str) -> Result<String, &'
 }
 
 pub fn is_message_encrypted(message: &str) -> bool {
-    // Define markers for both types of blocks
+
     const ENCRYPTED_BEGIN_MARKER: &str = "-----BEGIN ENCRYPTED MESSAGE-----";
     const ENCRYPTED_END_MARKER: &str = "-----END ENCRYPTED MESSAGE-----";
     const DILITHIUM_PUBLIC_KEY_PREFIX: &str = "DILITHIUM_PUBLIC_KEY:";
@@ -77,32 +74,29 @@ pub fn is_message_encrypted(message: &str) -> bool {
     const ECDH_KEY_EXCHANGE_PREFIX: &str = "ECDH_PUBLIC_KEY:";
     const KYBER_KEY_EXCHANGE_PREFIX: &str = "KYBER_PUBLIC_KEY:";
 
-    // Check for key exchange prefixes and handle them separately
     if message.starts_with(DILITHIUM_PUBLIC_KEY_PREFIX)
         || message.starts_with(EDDSA_PUBLIC_KEY_PREFIX)
         || message.starts_with(ECDH_KEY_EXCHANGE_PREFIX)
         || message.starts_with(KYBER_KEY_EXCHANGE_PREFIX)
     {
-        // Allow key exchange messages and return true
+
         return true;
     }
 
-    // Determine which markers are present for PGP encryption or key block
-    let begin_marker = if message.contains(ENCRYPTED_BEGIN_MARKER) { // Check for encrypted message
+    let begin_marker = if message.contains(ENCRYPTED_BEGIN_MARKER) { 
         ENCRYPTED_BEGIN_MARKER
     } else {
         println!("Missing or unrecognized begin marker.");
         return false;
     };
 
-    let end_marker = if message.contains(ENCRYPTED_END_MARKER) { // Check for encrypted message
+    let end_marker = if message.contains(ENCRYPTED_END_MARKER) { 
         ENCRYPTED_END_MARKER
     } else {
         println!("Missing or unrecognized end marker.");
         return false;
     };
 
-    // Locate the markers
     let begin_marker_pos = message.find(begin_marker);
     let end_marker_pos = message.find(end_marker);
 
