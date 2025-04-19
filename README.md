@@ -5,7 +5,7 @@
 
 # Amnezichat
 
-<img src="banner.png" width="1000">
+<img src="banner.png" width="1200">
 
 ## Anti-forensic and secure messenger
 <!-- DESCRIPTION -->
@@ -49,7 +49,7 @@ Amnezichat offers a highly secure and privacy-focused messaging experience by en
 - EdDSA and Dilithium5 for authentication, ECDH and Kyber1024 for key exchange, encryption using ChaCha20-Poly1305
 
 <!-- INSTALLATION -->
-## Basic server setup:
+## Server setup:
 
     sudo apt update
     sudo apt install curl build-essential git
@@ -59,16 +59,16 @@ Amnezichat offers a highly secure and privacy-focused messaging experience by en
     cargo build --release
     cargo run --release
 
-## Onionsite setup with Docker:
+## Server setup with Docker:
     
     sudo apt update
     sudo apt install docker.io git
     git clone https://github.com/umutcamliyurt/Amnezichat.git
-    cd Amnezichat/
-    sudo docker build -t amnezichat:latest .
-    sudo docker run -p 8080:8080 amnezichat:latest
+    cd Amnezichat/server/
+    sudo docker build -t amnezichatserver:latest .
+    sudo docker run -p 8080:8080 amnezichatserver:latest
 
-## Client usage:
+## Client setup:
 
 **For Web UI connect to http://localhost:8000**
 
@@ -80,6 +80,15 @@ Amnezichat offers a highly secure and privacy-focused messaging experience by en
     cd Amnezichat/client/
     cargo build --release
     cargo run --release
+
+## Client setup with Docker:
+
+    sudo apt update
+    sudo apt install docker.io git
+    git clone https://github.com/umutcamliyurt/Amnezichat.git
+    cd Amnezichat/client/
+    sudo docker build -t amnezichat:latest .
+    sudo docker run -p 8000:8000 amnezichat:latest
 
 ## Requirements:
 

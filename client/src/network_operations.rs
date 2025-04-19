@@ -412,7 +412,6 @@ pub fn send_encrypted_message(
         .send()?;
 
     if res.status().is_success() {
-        println!("Message sent successfully.");
     } else {
         eprintln!("Failed to send message: {}", res.status());
     }

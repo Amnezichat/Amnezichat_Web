@@ -34,29 +34,33 @@ use encryption::decrypt_data;
 use oqs::*;
 use oqs::sig::{Sig, PublicKey, SecretKey, Algorithm as SigAlgorithm};
 use rand::Rng;
-use reqwest::blocking::get;
-use std::fs;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::path::Path;
 use std::process::Command;
-use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::thread;
+use std::time::Duration;
 use hex;
 use std::io::{self, Write};
-use rpassword::read_password;
 use std::result::Result;
 use std::{
     collections::HashSet,
     error::Error,
 };
-use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
 use chacha20poly1305::aead::OsRng;
 use rand::RngCore;
 use sha3::{Sha3_512, Digest};
 use ed25519_dalek::VerifyingKey as Ed25519PublicKey;
+use eframe::egui;
+use rfd::MessageDialog;
+use rfd::MessageButtons;
+use rfd::MessageLevel;
+use rfd::MessageDialogResult;
 
 fn get_raw_bytes_public_key(pk: &PublicKey) -> &[u8] {
     pk.as_ref() 
@@ -95,7 +99,6 @@ fn request_user_confirmation(
     }
 
     let path = "contact_fingerprints.enc";
-
     let trusted_fingerprints = load_trusted_fingerprints(path, password)?;
 
     if trusted_fingerprints.contains(fingerprint) {
@@ -103,34 +106,39 @@ fn request_user_confirmation(
         return Ok(true);
     }
 
-    println!("The fingerprint of the received public key is: {}", fingerprint);
-    print!("Do you confirm this fingerprint? (yes/no): ");
-    io::stdout().flush()?;
+    let message = format!(
+        "🔒 Fingerprint Verification\n\n\
+         Your fingerprint:\n{}\n\n\
+         Received fingerprint:\n{}\n\n\
+         Do you want to trust the received fingerprint?",
+        own_fingerprint, fingerprint
+    );
 
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-    let response = input.trim().to_lowercase();
+    let confirm = MessageDialog::new()
+        .set_title("Trust New Fingerprint")
+        .set_level(MessageLevel::Info)
+        .set_description(&message)
+        .set_buttons(MessageButtons::YesNo)
+        .show();
 
-    match response.as_str() {
-        "yes" => {
-            print!("Would you like to remember this fingerprint for future sessions? (yes/no): ");
-            io::stdout().flush()?;
+    if confirm == MessageDialogResult::Yes {
+        let remember = MessageDialog::new()
+            .set_title("Remember Fingerprint?")
+            .set_level(MessageLevel::Info)
+            .set_description(
+                "💾 Would you like to remember this fingerprint for future sessions?\n\
+                 This prevents asking again for the same contact."
+            )
+            .set_buttons(MessageButtons::YesNo)
+            .show();
 
-            input.clear();
-            io::stdin().read_line(&mut input)?;
-            let remember_response = input.trim().to_lowercase();
-
-            if remember_response == "yes" {
-                save_fingerprint(path, fingerprint, password)?;
-            }
-
-            Ok(true)
+        if remember == MessageDialogResult::Yes {
+            save_fingerprint(path, fingerprint, password)?;
         }
-        "no" => Ok(false),
-        _ => {
-            println!("Invalid input. Please enter 'yes' or 'no'.");
-            request_user_confirmation(fingerprint, own_fingerprint, password)
-        }
+
+        Ok(true)
+    } else {
+        Ok(false)
     }
 }
 
@@ -194,57 +202,6 @@ fn generate_random_room_id() -> String {
     room_id
 }
 
-fn load_blacklist(file_path: &str) -> HashSet<IpNetwork> {
-    match fs::read_to_string(file_path) {
-        Ok(contents) => contents
-            .lines()
-            .filter_map(|line| {
-                let line = line.trim();
-                IpNetwork::from_str(line).ok()
-            })
-            .collect(),
-        Err(_) => HashSet::new(),
-    }
-}
-
-fn is_onion_site(url: &str) -> bool {
-    url.contains(".onion")
-}
-
-fn is_eepsite(url: &str) -> bool {
-    url.contains(".i2p")
-}
-
-fn resolve_dns(host: &str) -> Result<String, Box<dyn Error>> {
-    let output = Command::new("dig")
-        .args(["+short", host])
-        .output()?;
-
-    if output.status.success() {
-        let response = String::from_utf8_lossy(&output.stdout);
-
-        if let Some(ip) = response
-            .lines()
-            .filter(|line| line.parse::<std::net::IpAddr>().is_ok())
-            .next()
-        {
-            return Ok(ip.to_string());
-        }
-    }
-
-    Err("Failed to resolve DNS to an IP address.".into())
-}
-
-fn is_ip_blacklisted(ip: &str, blacklist: &HashSet<IpNetwork>) -> bool {
-
-    let ip: std::net::IpAddr = match ip.parse() {
-        Ok(ip) => ip,
-        Err(_) => return false,  
-    };
-
-    blacklist.iter().any(|range| range.contains(ip))
-}
-
 fn pad_message(message: &str, max_length: usize) -> String {
     let current_length = message.len();
 
@@ -262,176 +219,233 @@ fn pad_message(message: &str, max_length: usize) -> String {
     message.to_string()  
 }
 
+#[derive(Clone)]
+struct AppState {
+    choice: String,
+    server_url: String,
+    username: String,
+    private_password: String,
+    is_group_chat: bool,
+    show_url_label: bool,
+    room_id_input: String,
+    room_password: String,
+    error_message: Option<String>,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            choice: "".into(),
+            server_url: "".into(),
+            username: "".into(),
+            private_password: "".into(),
+            is_group_chat: false,
+            show_url_label: false,
+            room_id_input: "".into(),
+            room_password: "".into(),
+            error_message: None,
+        }
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
-    use std::sync::{Arc, Mutex};
-    use std::{io::{self, Write}, thread, time::Duration};
+    let mut options = eframe::NativeOptions::default();
+
+    options.viewport.resizable = Some(false);  
+
+    options.viewport.inner_size = Some(egui::vec2(600.0, 900.0));  
+
+    eframe::run_native("Messaging Setup", options, Box::new(|_cc| Box::new(SetupApp::default())))?;
+    Ok(())
+}
+
+struct SetupApp {
+    state: AppState,
+}
+
+impl Default for SetupApp {
+    fn default() -> Self {
+        Self {
+            state: AppState::default(),
+        }
+    }
+}
+
+impl eframe::App for SetupApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.add_space(20.0);
+                ui.heading(egui::RichText::new("Amnezichat").size(40.0));
+                ui.add_space(30.0);
+
+                egui::Frame::group(ui.style()).inner_margin(egui::style::Margin::symmetric(20.0, 20.0)).show(ui, |ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.label(egui::RichText::new("Choose an action:").size(24.0));
+                        ui.add_space(10.0);
+                        ui.horizontal_wrapped(|ui| {
+
+                            ui.add_space(20.0); 
+                            if ui.add(
+                                egui::Button::new(egui::RichText::new("➕ Create Room").size(24.0))
+                                    .min_size(egui::vec2(200.0, 60.0))
+                                    .fill(egui::Color32::from_rgb(50, 50, 50)) 
+                            ).clicked() {
+                                self.state.choice = "create".into();
+                                self.state.room_id_input = generate_random_room_id();
+                            }
+                            ui.add_space(100.0); 
+                            if ui.add(
+                                egui::Button::new(egui::RichText::new("🔗 Join Room").size(24.0))
+                                    .min_size(egui::vec2(200.0, 60.0))
+                                    .fill(egui::Color32::from_rgb(50, 50, 50)) 
+                            ).clicked() {
+                                self.state.choice = "join".into();
+                            }
+                        });
+
+                        ui.add_space(20.0);
+
+                        match self.state.choice.as_str() {
+                            "join" => {
+                                ui.separator();
+                                ui.label(egui::RichText::new("🔑 Enter Room ID:").size(22.0));
+                                ui.add(
+                                    egui::TextEdit::singleline(&mut self.state.room_id_input)
+                                        .font(egui::TextStyle::Heading)
+                                        .desired_width(300.0)
+                                );
+                            }
+                            "create" => {
+                                if !self.state.room_id_input.is_empty() {
+                                    ui.separator();
+                                    ui.label(egui::RichText::new("🆔 Generated Room ID:").size(22.0));
+                                    ui.code(egui::RichText::new(&self.state.room_id_input).size(20.0));
+                                }
+                            }
+                            _ => {}
+                        }
+                    });
+                });
+
+                ui.add_space(30.0);
+
+                egui::Frame::group(ui.style()).inner_margin(egui::style::Margin::symmetric(20.0, 20.0)).show(ui, |ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.heading(egui::RichText::new("🔧 Connection Details").size(36.0));
+                        ui.add_space(20.0);
+
+                        egui::Grid::new("connection_details")
+                            .num_columns(2)
+                            .spacing([50.0, 16.0])
+                            .show(ui, |ui| {
+                                ui.label(egui::RichText::new("Server URL:").size(22.0));
+                                ui.add(
+                                    egui::TextEdit::singleline(&mut self.state.server_url)
+                                        .font(egui::TextStyle::Heading)
+                                        .desired_width(300.0)
+                                );
+                                ui.end_row();
+
+                                ui.label(egui::RichText::new("Username:").size(22.0));
+                                ui.add(
+                                    egui::TextEdit::singleline(&mut self.state.username)
+                                        .font(egui::TextStyle::Heading)
+                                        .desired_width(300.0)
+                                );
+                                ui.end_row();
+
+                                ui.label(egui::RichText::new("Private Password:").size(22.0));
+                                ui.add(
+                                    egui::TextEdit::singleline(&mut self.state.private_password)
+                                        .password(true)
+                                        .font(egui::TextStyle::Heading)
+                                        .desired_width(300.0)
+                                );
+                                ui.end_row();
+                            });
+
+                        ui.add_space(20.0);
+                        ui.checkbox(&mut self.state.is_group_chat, egui::RichText::new("👥 Is Group Chat?").size(22.0));
+
+                        if self.state.is_group_chat {
+                            ui.add_space(20.0);
+                            ui.label(egui::RichText::new("🔒 Room Password (min 8 chars):").size(22.0));
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.state.room_password)
+                                    .font(egui::TextStyle::Heading)
+                                    .desired_width(300.0)
+                            );
+                        }
+                    });
+                });
+
+                ui.add_space(30.0);
+
+                if ui.add(
+                    egui::Button::new(egui::RichText::new("🚀 Start Messaging").size(28.0))
+                        .fill(egui::Color32::from_rgb(0, 100, 0)) 
+                        .min_size(egui::vec2(250.0, 60.0))
+                ).clicked() {
+                    if let Err(err) = validate_and_start(self.state.clone()) {
+                        self.state.error_message = Some(err.to_string());
+                    } else {
+
+                        self.state.show_url_label = true;
+                    }
+                }
+
+                if let Some(err) = &self.state.error_message {
+                    ui.add_space(20.0);
+                    ui.colored_label(egui::Color32::RED, egui::RichText::new(format!("❗ {}", err)).size(22.0));
+                }
+
+                if self.state.show_url_label {
+                    ui.add_space(20.0);
+                    ui.label(egui::RichText::new("Open http://127.0.0.1:8000 in your web browser").size(22.0));
+                }
+            });
+        });
+    }
+}
+
+fn validate_and_start(state: AppState) -> Result<(), Box<dyn Error>> {
+    if state.server_url.is_empty() || state.username.is_empty() || state.private_password.is_empty() {
+        return Err("Please fill in all fields.".into());
+    }
+    if state.is_group_chat && state.room_password.len() <= 8 {
+        return Err("Room password must be longer than 8 characters.".into());
+    }
+
+    std::thread::spawn(move || {
+        if let Err(e) = run_app_logic(state) {
+            eprintln!("App error: {}", e);
+        }
+    });
+
+    Ok(())
+}
+
+fn run_app_logic(state: AppState) -> Result<(), Box<dyn Error>> {
 
     let sigalg = sig::Sig::new(sig::Algorithm::Dilithium5)?;
 
-    println!("Would you like to create a new room or join an existing one?");
-    println!("Type 'create' to create a new room or 'join' to join an existing one.");
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice)?;
-    let choice = choice.trim();
+    let room_id = state.room_id_input.clone();
+    let url = state.server_url.clone();
+    let username = state.username.clone();
+    let private_password = state.private_password.clone();
 
-    let room_id = match choice {
-        "create" => {
-            let new_room_id = generate_random_room_id();
-            println!("Generated new room ID: {}", new_room_id);
-            new_room_id
-        }
-        "join" => {
-            println!("Enter the room ID to join:");
-            let mut room_input = String::new();
-            io::stdin().read_line(&mut room_input)?;
-            room_input.trim().to_string()
-        }
-        _ => {
-            println!("Invalid choice. Please restart the program and choose 'create' or 'join'.");
-            return Ok(());
-        }
-    };
-
-    let blacklist_file = "cloudflare-ip-blacklist.txt";
-    if !Path::new(blacklist_file).exists() {
-        println!("File '{}' not found. Fetching from Codeberg...", blacklist_file);
-
-        let url = "https://codeberg.org/umutcamliyurt/Amnezichat/raw/branch/main/client/cloudflare-ip-blacklist.txt";
-        let response = get(url)?;
-
-        if response.status().is_success() {
-            let content = response.text()?;
-
-            let mut file = File::create(blacklist_file)?;
-            file.write_all(content.as_bytes())?;
-            println!("File fetched and saved as '{}'.", blacklist_file);
-        } else {
-            println!("Failed to fetch the file from URL.");
-            return Err("Failed to fetch blacklist.".into());
-        }
-    }
-
-    let blacklist = load_blacklist("cloudflare-ip-blacklist.txt");
-
-    let mut input = String::new();
-    print!("Enter the server URL: ");
-    io::stdout().flush()?;
-    io::stdin().read_line(&mut input)?;
-    let url = input.trim().to_string();
-    input.clear();
-
-    if is_onion_site(&url) {
-        println!("This is an .onion site. Skipping IP check.");
-    }
-    else if is_eepsite(&url)
-    {
-        println!("This is an .i2p site. Skipping IP check.");
-    } 
-    else {
-
-        let host = url
-            .split('/')
-            .nth(2)
-            .unwrap_or(&url) 
-            .split(':')
-            .next()
-            .unwrap_or(&url);
-
-        match resolve_dns(host) {
-            Ok(ip) => {
-
-                if is_ip_blacklisted(&ip, &blacklist) {
-                    println!("WARNING! The IP {} is in the blacklist.", ip);
-                    println!("The server you're trying to access is behind a Cloudflare reverse proxy.");
-                    println!("Proceed with caution as this setup may expose you to several potential risks:");
-                    println!();
-                    println!("Deanonymization attacks (including 0-click exploits)");
-                    println!("Metadata leaks");
-                    println!("Encryption vulnerabilities");
-                    println!("AI-based traffic analysis");
-                    println!("Connectivity issues");
-                    println!("Other undetected malicious behavior");
-                    println!();
-                    println!("What you can do:");
-                    println!("1. Choose a different server");
-                    println!("2. Self-host your own server");
-                    println!("3. Proceed anyway (Dangerous!)");
-                    println!();
-                    println!("For more info: https://git.calitabby.net/mirrors/deCloudflare");
-                    println!();
-                    println!("Do you want to proceed? (yes/no)");
-
-                    let mut input = String::new();
-                    io::stdin()
-                        .read_line(&mut input)
-                        .expect("Failed to read input");
-                    let input = input.trim().to_lowercase();
-
-                    match input.as_str() {
-                        "yes" | "y" => {
-                            println!("Proceeding...");
-                        }
-                        "no" | "n" => {
-                            println!("Operation aborted!");
-                            return Ok(()); 
-                        }
-                        _ => {
-                            println!("Invalid input. Please enter 'yes' or 'no'.");
-                        }
-                    }
-                }
-            }
-            Err(e) => {
-                println!("Failed to resolve IP for the server: {}", e);
-            }
-        }
-    }
-
-    print!("Enter your username: ");
-    io::stdout().flush()?;
-    io::stdin().read_line(&mut input)?;
-    let username = input.trim().to_string();
-    input.clear();
-
-    print!("Enter private key encryption password: ");
-    io::stdout().flush()?;
-    let private_password = read_password()?.to_string();
-
-    println!("Is this a group chat? (yes/no): ");
-    let mut is_group_chat = String::new();
-    io::stdin().read_line(&mut is_group_chat)?;
-    let is_group_chat = is_group_chat.trim().to_lowercase() == "yes";
-
-    let room_password = if is_group_chat {
-
-        loop {
-            print!("Enter room password (must be longer than 8 characters): ");
-            io::stdout().flush()?; 
-            let mut input = String::new();
-            io::stdin().read_line(&mut input)?;
-            let password_input = input.trim();
-            if password_input.len() > 8 {
-                break password_input.to_string(); 
-            } else {
-                println!("Error: Password must be longer than 8 characters. Please try again.");
-            }
-        }
+    let room_password = if state.is_group_chat {
+        let salt = derive_salt_from_password(&state.room_password);
+        let key = derive_key(&state.room_password, &salt);
+        hex::encode(key)
     } else {
-
         String::new()
     };
 
-    let room_password = if is_group_chat {
-        let salt = derive_salt_from_password(&room_password);
-        let key = derive_key(&room_password, &salt);
-        hex::encode(key)
-    } else {
-        String::new() 
-    };
-
-    if is_group_chat {
+    if state.is_group_chat {
         println!("Skipping key exchange. Using room password as shared secret.");
-        let hybrid_shared_secret = room_password.clone();  
+        let hybrid_shared_secret = room_password.clone();
         println!("Shared secret established.");
         println!("You can now start messaging!");
 
@@ -482,7 +496,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     &room_id_locked,
                     &shared_hybrid_secret,
                     &url_locked,
-                    true, 
+                    true,
                 ) {
                     Ok(_) => {}
                     Err(e) => eprintln!("Error fetching messages: {}", e),
@@ -506,14 +520,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         });
 
-        if let Err(e) = random_data_thread.join() {
-            eprintln!("Random data thread terminated with error: {:?}", e);
-        }
-
-        if let Err(e) = fetch_thread.join() {
-            eprintln!("Fetch thread terminated with error: {:?}", e);
-        }
-
+        random_data_thread.join().ok();
+        fetch_thread.join().ok();
         return Ok(());
     }
 

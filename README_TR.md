@@ -5,7 +5,7 @@
 
 # Amnezichat
 
-<img src="banner.png" width="1000">
+<img src="banner.png" width="1200">
 
 ## İz bırakmayan güvenli mesajlaşma
 <!-- AÇIKLAMA -->
@@ -59,16 +59,16 @@ Amnezichat, hiçbir kayıt tutulmamasını ve tüm mesaj verilerinin yalnızca s
     cargo build --release
     cargo run --release
 
-## Docker ile Onion sitesi kurulumu:
+## Docker ile sunucu kurulumu:
     
     sudo apt update
     sudo apt install docker.io git
     git clone https://github.com/umutcamliyurt/Amnezichat.git
-    cd Amnezichat/
-    sudo docker build -t amnezichat:latest .
-    sudo docker run -p 8080:8080 amnezichat:latest
+    cd Amnezichat/server/
+    sudo docker build -t amnezichatserver:latest .
+    sudo docker run -p 8080:8080 amnezichatserver:latest
 
-## İstemci kullanımı:
+## İstemci kurulumu:
 
 **Web UI için http://localhost:8000 adresine bağlanın**
 
@@ -80,6 +80,15 @@ Amnezichat, hiçbir kayıt tutulmamasını ve tüm mesaj verilerinin yalnızca s
     cd Amnezichat/client/
     cargo build --release
     cargo run --release
+
+## Docker ile istemci kurulumu:
+
+    sudo apt update
+    sudo apt install docker.io git
+    git clone https://github.com/umutcamliyurt/Amnezichat.git
+    cd Amnezichat/client/
+    sudo docker build -t amnezichat:latest .
+    sudo docker run -p 8000:8000 amnezichat:latest
 
 ## Gereksinimler:
 
