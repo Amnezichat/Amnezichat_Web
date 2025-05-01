@@ -1,8 +1,6 @@
 [default]
-address = "0.0.0.0"
+address = "127.0.0.1"
 port = 8080
-
-[default.limits]
-forms = "5 MiB"
-json = "5 MiB"
-file = "5 MiB"
+shutdown.grace = 5
+shutdown.mercy = 3
+limits = { json = "5 MiB", form = "5 MiB", file = "5 MiB" }

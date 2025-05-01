@@ -1,11 +1,7 @@
-use crate::encrypt_data;
-use crate::receive_and_fetch_messages;
-use crate::send_encrypted_message;
-use crate::pad_message;
-use rocket::{get, post, routes, serde::json::Json};
-use rocket::fs::NamedFile;
+use crate::{encrypt_data, pad_message, receive_and_fetch_messages, send_encrypted_message};
+use rocket::{get, post, routes, serde::json::Json, State};
+use rocket::fs::{NamedFile, FileServer};
 use rocket::tokio;
-use rocket::fs::FileServer;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -29,38 +25,45 @@ impl MessagingApp {
     pub fn new(
         username: String,
         shared_hybrid_secret: Arc<String>,
-        shared_room_id: Arc<Mutex<String>>,
-        shared_url: Arc<Mutex<String>>,
+        shared_room_id_mutex: Arc<Mutex<String>>,
+        shared_url_mutex: Arc<Mutex<String>>,
     ) -> Self {
+        let room_id_str = shared_room_id_mutex.lock().unwrap().clone();
+        let url_str = shared_url_mutex.lock().unwrap().clone();
+
+        let room_id = Arc::new(room_id_str);
+        let url = Arc::new(url_str);
+
         let messages = Arc::new(Mutex::new(vec![]));
         let messages_clone = Arc::clone(&messages);
-        let shared_hybrid_secret_clone = Arc::clone(&shared_hybrid_secret);
-        let shared_room_id_clone = Arc::clone(&shared_room_id);
-        let shared_url_clone = Arc::clone(&shared_url);
 
-        let room_id = Arc::new(shared_room_id_clone.lock().unwrap_or_else(|_| panic!("Failed to lock room_id")).clone());
-        let url = Arc::new(shared_url_clone.lock().unwrap_or_else(|_| panic!("Failed to lock url")).clone());
+        let shared_room_id_mutex_clone = Arc::clone(&shared_room_id_mutex);
+        let shared_url_mutex_clone = Arc::clone(&shared_url_mutex);
+        let shared_hybrid_secret_clone = Arc::clone(&shared_hybrid_secret);
 
         tokio::spawn(async move {
             loop {
-                let room_id_str = shared_room_id_clone.lock().unwrap_or_else(|_| panic!("Failed to lock room_id")).clone();
-                let url_str = shared_url_clone.lock().unwrap_or_else(|_| panic!("Failed to lock url")).clone();
+                let room_id_str = shared_room_id_mutex_clone.lock().unwrap().clone();
+                let url_str = shared_url_mutex_clone.lock().unwrap().clone();
+                let secret_clone = Arc::clone(&shared_hybrid_secret_clone);
 
-                match receive_and_fetch_messages(
-                    &room_id_str,
-                    &shared_hybrid_secret_clone,
-                    &url_str,
-                    true,
-                ) {
-                    Ok(new_messages) => {
-                        let mut msgs = messages_clone.lock().unwrap_or_else(|_| panic!("Failed to lock messages"));
+                let result = tokio::task::spawn_blocking(move || {
+                    receive_and_fetch_messages(&room_id_str, &secret_clone, &url_str, true)
+                        .map_err(|e| {
+                            Box::<dyn std::error::Error + Send + Sync>::from(format!("{}", e))
+                        })
+                }).await;
+
+                match result {
+                    Ok(Ok(new_messages)) => {
+                        let mut msgs = messages_clone.lock().unwrap();
                         msgs.clear();
                         msgs.extend(new_messages);
                     }
-                    Err(e) => {
-                        eprintln!("Error fetching messages: {}", e);
-                    }
+                    Ok(Err(e)) => eprintln!("Error fetching messages: {}", e),
+                    Err(e) => eprintln!("Join error: {}", e),
                 }
+
                 tokio::time::sleep(Duration::from_secs(10)).await;
             }
         });
@@ -76,34 +79,32 @@ impl MessagingApp {
 }
 
 #[get("/messages")]
-async fn get_messages(app: &rocket::State<MessagingApp>) -> Json<Vec<String>> {
-    let result = fetch_and_update_messages(&app).await;
+async fn get_messages(app: &State<MessagingApp>) -> Json<Vec<String>> {
+    let result = fetch_and_update_messages(app).await;
 
     match result {
         Ok(msgs) => Json(msgs),
         Err(e) => {
             eprintln!("Error fetching messages: {}", e);
-
-            let msgs = app.messages.lock().unwrap_or_else(|_| panic!("Failed to lock messages"));
+            let msgs = app.messages.lock().unwrap();
             Json(msgs.clone())
         }
     }
 }
 
-async fn fetch_and_update_messages(app: &rocket::State<MessagingApp>) -> Result<Vec<String>, String> {
+async fn fetch_and_update_messages(app: &State<MessagingApp>) -> Result<Vec<String>, String> {
     let room_id_str = app.shared_room_id.clone();
     let url_str = app.shared_url.clone();
+    let secret_clone = app.shared_hybrid_secret.clone();
 
-    let new_messages = tokio::task::block_in_place(move || {
-        receive_and_fetch_messages(
-            &room_id_str,
-            &app.shared_hybrid_secret,
-            &url_str,
-            true,
-        )
-    }).map_err(|e| format!("Error fetching messages: {}", e))?;
+    let new_messages = tokio::task::spawn_blocking(move || {
+        receive_and_fetch_messages(&room_id_str, &secret_clone, &url_str, true)
+            .map_err(|e| format!("Error fetching messages: {}", e))
+    })
+    .await
+    .map_err(|e| format!("Spawn blocking join error: {}", e))??;
 
-    let mut msgs = app.messages.lock().unwrap_or_else(|_| panic!("Failed to lock messages"));
+    let mut msgs = app.messages.lock().unwrap();
     msgs.clear();
     msgs.extend(new_messages.clone());
 
@@ -113,37 +114,37 @@ async fn fetch_and_update_messages(app: &rocket::State<MessagingApp>) -> Result<
 #[post("/send", data = "<input>")]
 async fn post_message(
     input: Json<MessageInput>,
-    app: &rocket::State<MessagingApp>
+    app: &State<MessagingApp>,
 ) -> Result<&'static str, rocket::http::Status> {
-
     let formatted_message = format!("<strong>{}</strong>: {}", app.username, input.message);
     let padded_message = pad_message(&formatted_message, 2048);
 
-    let result = tokio::task::block_in_place(|| {
+    let secret_clone = Arc::clone(&app.shared_hybrid_secret);
+    let room_id_clone = Arc::clone(&app.shared_room_id);
+    let url_clone = Arc::clone(&app.shared_url);
 
-        let encrypted = encrypt_data(&padded_message, &app.shared_hybrid_secret)
+    let _result = tokio::task::spawn_blocking(move || {
+        let encrypted = encrypt_data(&padded_message, &secret_clone)
             .map_err(|e| {
                 eprintln!("Encryption error: {}", e);
                 rocket::http::Status::InternalServerError
             })?;
 
-        send_encrypted_message(&encrypted, &app.shared_room_id, &app.shared_url)
+        send_encrypted_message(&encrypted, &room_id_clone, &url_clone)
             .map_err(|e| {
-                eprintln!("Error sending message: {}", e);
+                eprintln!("Send message error: {}", e);
                 rocket::http::Status::InternalServerError
             })
-    });
+    })
+    .await
+    .map_err(|_| rocket::http::Status::InternalServerError)??;
 
-    match result {
-        Ok(_) => {
-            {
-                let mut msgs = app.messages.lock().unwrap_or_else(|_| panic!("Failed to lock messages"));
-                msgs.push(formatted_message);
-            }
-            Ok("Message sent")
-        }
-        Err(e) => Err(e),
+    {
+        let mut msgs = app.messages.lock().unwrap();
+        msgs.push(formatted_message);
     }
+
+    Ok("Message sent")
 }
 
 #[get("/")]

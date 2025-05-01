@@ -9,18 +9,35 @@ RUN apt-get update && \
     apt-get install -y \
         curl \
         build-essential \
+        clang \
+        cmake \
+        libclang-dev \
+        llvm-dev \
+        net-tools \
+        libxkbcommon-x11-0 \
         git \
-        tor && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+        tor \
+        xterm \
+        pkg-config \
+        iputils-ping \
+        libglib2.0-dev \
+        libssl-dev \
+        libgtk-3-dev \
+        dnsutils
 
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 
-RUN git clone https://github.com/umutcamliyurt/Amnezichat.git /opt/Amnezichat
+RUN git clone https://git.disroot.org/UmutCamliyurt/Amnezichat.git /opt/Amnezichat
 
 WORKDIR /opt/Amnezichat/client
 RUN cargo build --release
 
 EXPOSE 8000
 
-CMD tor & cargo run --release
+CMD bash -c "\
+    if pgrep -x tor > /dev/null; then \
+        echo 'Killing existing Tor process...'; \
+        pkill -x tor; \
+        sleep 1; \
+    fi; \
+    cargo run --release"

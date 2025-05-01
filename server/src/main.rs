@@ -7,11 +7,10 @@ use rocket::State;
 use rocket::http::Status;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Semaphore};
 use tokio::time::{interval, Duration};
 use std::time::{SystemTime, UNIX_EPOCH};
 use html_escape::encode_text;
-use tokio::time::sleep;
 use zeroize::Zeroize;
 use rocket::serde::json::Json;
 
@@ -19,10 +18,13 @@ mod encryption;
 use crate::encryption::{encrypt_message, decrypt_message, is_message_encrypted};
 
 const TIME_WINDOW: u64 = 60;
-const MESSAGE_LIMIT: usize = 200; 
-const MAX_MESSAGE_LENGTH: usize = 5 * 1024 * 1024; 
-const RECENT_MESSAGE_LIMIT: usize = 300; 
-const MESSAGE_EXPIRY_DURATION: u64 = 86400; 
+const MESSAGE_LIMIT: usize = 200;
+const MAX_MESSAGE_LENGTH: usize = 5 * 1024 * 1024;
+const RECENT_MESSAGE_LIMIT: usize = 200;
+const MESSAGE_EXPIRY_DURATION: u64 = 86400;
+const MAX_ACTIVE_REQUESTS: usize = 100;
+const ROOM_TIME_WINDOW: u64 = 60; 
+const ROOM_MESSAGE_LIMIT: usize = 60; 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Message {
@@ -42,6 +44,11 @@ struct ChatState {
     user_request_timestamps: Arc<Mutex<HashMap<String, (u64, u64)>>>,
     recent_messages: Arc<Mutex<HashSet<String>>>,
     global_message_timestamps: Arc<Mutex<Vec<u64>>>,
+    room_limits: Arc<Mutex<HashMap<String, usize>>>,
+    recent_fingerprints: Arc<Mutex<HashSet<String>>>,
+    active_requests: Arc<Semaphore>,
+
+    room_message_timestamps: Arc<Mutex<HashMap<String, Vec<u64>>>>,
 }
 
 impl Clone for ChatState {
@@ -51,6 +58,10 @@ impl Clone for ChatState {
             user_request_timestamps: Arc::clone(&self.user_request_timestamps),
             recent_messages: Arc::clone(&self.recent_messages),
             global_message_timestamps: Arc::clone(&self.global_message_timestamps),
+            room_limits: Arc::clone(&self.room_limits),
+            recent_fingerprints: Arc::clone(&self.recent_fingerprints),
+            active_requests: Arc::clone(&self.active_requests),
+            room_message_timestamps: Arc::clone(&self.room_message_timestamps),
         }
     }
 }
@@ -69,15 +80,30 @@ async fn check_message_limit(state: &ChatState) -> bool {
     global_timestamps.retain(|&timestamp| current_time - timestamp <= TIME_WINDOW);
 
     if global_timestamps.len() >= MESSAGE_LIMIT {
-        return false; 
+        return false;
     }
 
     global_timestamps.push(current_time);
     true
 }
 
-async fn is_message_valid(message: &str, state: &ChatState) -> bool {
+async fn check_room_rate_limit(state: &ChatState, room_id: &str) -> bool {
+    let mut room_timestamps = state.room_message_timestamps.lock().await;
+    let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
+    let timestamps = room_timestamps.entry(room_id.to_string()).or_default();
+
+    timestamps.retain(|&t| current_time - t <= ROOM_TIME_WINDOW);
+
+    if timestamps.len() >= ROOM_MESSAGE_LIMIT {
+        return false; 
+    }
+
+    timestamps.push(current_time);
+    true
+}
+
+async fn is_message_valid(message: &str, state: &ChatState) -> bool {
     if message.len() > MAX_MESSAGE_LENGTH {
         return false;
     }
@@ -85,9 +111,8 @@ async fn is_message_valid(message: &str, state: &ChatState) -> bool {
     let mut messages = state.messages.lock().await;
 
     if messages.len() >= RECENT_MESSAGE_LIMIT {
-
         wipe_message_content(&mut messages[0]);
-        messages.remove(0); 
+        messages.remove(0);
     }
 
     true
@@ -100,19 +125,17 @@ async fn messages(room_id: Option<String>, state: &State<Arc<ChatState>>) -> Str
 
     let mut html = String::new();
     for message in messages.iter() {
-
         let timestamp = format_timestamp(message.timestamp);
 
         let decrypted_content = match &room_id {
             Some(ref pw) => decrypt_message(&message.content, pw).unwrap_or_else(|_| {
-
-                return String::new();  
+                return String::new();
             }),
-            None => String::new(),  
+            None => String::new(),
         };
 
         if decrypted_content.is_empty() {
-            continue;  
+            continue;
         }
 
         html.push_str(&format!(
@@ -127,7 +150,6 @@ async fn messages(room_id: Option<String>, state: &State<Arc<ChatState>>) -> Str
 
 #[get("/?<room_id>")]
 async fn index(room_id: Option<String>, state: &State<Arc<ChatState>>) -> Result<RawHtml<String>, Status> {
-
     let mut html = tokio::fs::read_to_string("static/index.html")
         .await
         .map_err(|_error| Status::InternalServerError)?;
@@ -167,10 +189,12 @@ async fn send(message_data: Json<MessageData>, state: &State<Arc<ChatState>>) ->
     let message = message_data.message.trim();
     let room_id = message_data.room_id.trim();
 
-    sleep(Duration::from_secs(2)).await;
-
     if !check_message_limit(&state.inner()).await {
-        return Err(RawHtml("Too many messages sent in a short period. Please wait for 2 minutes.".to_string()));
+        return Err(RawHtml("Too many messages sent globally in a short period. Please wait for 2 minutes.".to_string()));
+    }
+
+    if !check_room_rate_limit(&state.inner(), room_id).await {
+        return Err(RawHtml(format!("Too many messages sent to room {} in a short period. Please wait a while.", encode_text(room_id))));
     }
 
     if room_id.is_empty() {
@@ -182,7 +206,7 @@ async fn send(message_data: Json<MessageData>, state: &State<Arc<ChatState>>) ->
     }
 
     if !is_message_valid(message, state).await {
-        return Err(RawHtml("Invalid message. Make sure it's less than 10MB.".to_string()));
+        return Err(RawHtml("Invalid message. Make sure it's less than 5MB.".to_string()));
     }
 
     if !is_message_encrypted(message) {
@@ -203,15 +227,14 @@ async fn send(message_data: Json<MessageData>, state: &State<Arc<ChatState>>) ->
 }
 
 fn wipe_message_content(message: &mut Message) {
-
     message.content.zeroize();
 }
 
 async fn message_cleanup_task(state: Arc<ChatState>) {
-    let mut interval = interval(Duration::from_secs(1)); 
+    let mut interval = interval(Duration::from_secs(1));
 
     loop {
-        interval.tick().await; 
+        interval.tick().await;
 
         let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
@@ -220,9 +243,7 @@ async fn message_cleanup_task(state: Arc<ChatState>) {
         if let Some(oldest_message_index) = messages.iter().position(|message| {
             current_time - message.timestamp >= MESSAGE_EXPIRY_DURATION
         }) {
-
             wipe_message_content(&mut messages[oldest_message_index]);
-
             messages.remove(oldest_message_index);
         }
     }
@@ -230,20 +251,25 @@ async fn message_cleanup_task(state: Arc<ChatState>) {
 
 #[tokio::main]
 async fn main() {
-    let chat_state = Arc::new(ChatState {
-        messages: Arc::new(Mutex::new(Vec::new())),
+    let state = Arc::new(ChatState {
+        messages: Arc::new(Mutex::new(vec![])),
         user_request_timestamps: Arc::new(Mutex::new(HashMap::new())),
         recent_messages: Arc::new(Mutex::new(HashSet::new())),
-        global_message_timestamps: Arc::new(Mutex::new(Vec::new())),
+        global_message_timestamps: Arc::new(Mutex::new(vec![])),
+        room_limits: Arc::new(Mutex::new(HashMap::new())),
+        recent_fingerprints: Arc::new(Mutex::new(HashSet::new())),
+        active_requests: Arc::new(Semaphore::new(MAX_ACTIVE_REQUESTS)),
+
+        room_message_timestamps: Arc::new(Mutex::new(HashMap::new())),
     });
 
-    tokio::spawn(message_cleanup_task(Arc::clone(&chat_state)));
+    tokio::spawn(message_cleanup_task(state.clone()));
 
     rocket::build()
-        .manage(chat_state)
+        .manage(state)
         .mount("/", routes![index, send, messages])
         .mount("/static", rocket::fs::FileServer::from("static"))
         .launch()
         .await
-        .unwrap(); 
+        .unwrap();
 }

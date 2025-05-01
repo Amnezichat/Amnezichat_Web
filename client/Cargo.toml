@@ -25,3 +25,4 @@ rocket = { version = "0.5", features = ["json"] }
 eframe = "0.26"
 egui = "0.26"
 rfd = "0.12"
+which = "4.4"

@@ -12,7 +12,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /app
 
-RUN git clone https://github.com/umutcamliyurt/Amnezichat.git .
+RUN git clone https://git.disroot.org/UmutCamliyurt/Amnezichat.git .
 
 WORKDIR /app/server
 

@@ -1,312 +1,45 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Amnezichat</title>
   <link rel="stylesheet" href="/static/styles.css" />
-  <script src="/static/purify.min.js"></script>
+  <script src="/static/purify.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
 </head>
-<body onload="fetchMessages(); requestNotificationPermission(); setInterval(fetchMessages, 3000);">
-  <div class="container">
-    <div id="messages"></div>
-    <div class="input-container">
-      <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off" />
-      <button onclick="sendMessage()">Send</button>
-      <button onclick="document.getElementById('mediaInput').click()">📷</button>
-      <button onclick="startVoiceRecording()" id="micButton">🎤</button>
-      <button onclick="toggleSettings()">Settings</button>
-    </div>
-  </div>
+<body>
+  <main class="container">
+    <section id="messages" aria-live="polite" role="log"></section>
 
-  <div id="recordingStatus" style="display:none; align-items:center; gap:10px; margin-top: 10px;">
-    <span id="timer">00:00</span>
-    <button onclick="cancelVoiceRecording()" style="background-color:red; color:white;">Cancel ❌</button>
-  </div>
+    <form class="input-container" onsubmit="event.preventDefault(); sendMessage();">
+      <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off" aria-label="Message input" />
+      <button type="submit" aria-label="Send message">💬</button>
+      <button type="button" onclick="document.getElementById('mediaInput').click()" aria-label="Send media">🖼️</button>
+      <button type="button" id="micButton" onclick="startVoiceRecording()" aria-label="Voice message">🎤</button>
+      <button type="button" onclick="toggleSettings()" aria-label="Open settings">⚙️</button>
+    </form>
 
-  <div id="settings">
+    <section id="recordingStatus" hidden class="recording-status" aria-live="assertive">
+      <span id="timer">00:00</span>
+      <button type="button" onclick="cancelVoiceRecording()" class="danger">Cancel ❌</button>
+    </section>
+  </main>
+
+  <aside id="settings" hidden class="modal">
     <div class="settings-content">
       <h2>Settings</h2>
-      <input type="file" accept="image/*" id="profilePicInput" style="display:none;" onchange="handleProfilePicChange(event)" />
+      <input type="file" accept="image/*" id="profilePicInput" hidden onchange="handleProfilePicChange(event)" />
       <button onclick="document.getElementById('profilePicInput').click()">Choose Profile Picture</button>
       <button onclick="toggleTheme()">Toggle Light/Dark Mode</button>
       <button onclick="closeSettings()">Close</button>
     </div>
-  </div>  
+  </aside>
 
-  <div id="mediaModal" onclick="closeMediaModal()">
+  <div id="mediaModal" class="media-modal" onclick="closeMediaModal()">
     <span class="close-btn" onclick="closeMediaModal(); event.stopPropagation();">&times;</span>
   </div>
 
-  <input type="file" accept="image/*,video/*" id="mediaInput" style="display:none;" onchange="handleMediaChange(event)" />
-
-  <script>
-    let profilePicBase64 = localStorage.getItem("profilePic") || "";
-    let notifiedMessageSet = new Set(JSON.parse(localStorage.getItem("notifiedMessages") || "[]"));
-    let mediaRecorder;
-    let audioChunks = [];
-    let recordingStartTime;
-    let recordingTimerInterval;
-
-    function hashMessage(message) {
-      return message.replace(/<[^>]*>/g, '').trim();
-    }
-
-    function showNotification(message) {
-      const messageHash = hashMessage(message);
-      if (!notifiedMessageSet.has(messageHash) && Notification.permission === "granted") {
-        new Notification("New Message", {
-          body: messageHash
-        });
-        notifiedMessageSet.add(messageHash);
-        localStorage.setItem("notifiedMessages", JSON.stringify(Array.from(notifiedMessageSet)));
-      }
-    }
-
-    function requestNotificationPermission() {
-      if (Notification.permission !== "granted") {
-        Notification.requestPermission();
-      }
-    }
-
-    function handleProfilePicChange(event) {
-      const file = event.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          profilePicBase64 = reader.result;
-          localStorage.setItem("profilePic", profilePicBase64);
-        };
-        reader.readAsDataURL(file);
-      }
-    }
-
-    function handleMediaChange(event) {
-      const file = event.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const mediaBase64 = DOMPurify.sanitize(reader.result);
-          let message = `<pfp>${profilePicBase64}</pfp><media>${mediaBase64}</media>`;
-          await fetch('/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message })
-          });
-          fetchMessages();
-        };
-        reader.readAsDataURL(file);
-      }
-    }
-
-    async function fetchMessages() {
-      const res = await fetch('/messages');
-      const messages = await res.json();
-      const messagesDiv = document.getElementById('messages');
-
-      const base64Img = /^data:image\/(png|jpeg|jpg|gif|svg\+xml);base64,/;
-      const base64Vid = /^data:video\/(mp4|webm|ogg);base64,/;
-      const base64Audio = /^data:audio\/(webm|ogg);base64,/;
-
-      let messagesHTML = messages.map(msg => {
-        const pfpMatch = msg.match(/<pfp>(.*?)<\/pfp>/);
-        const mediaMatch = msg.match(/<media>(.*?)<\/media>/);
-        const audioMatch = msg.match(/<audio>(.*?)<\/audio>/);
-        const messageTextRaw = msg.replace(/<pfp>.*?<\/pfp>/, '').replace(/<media>.*?<\/media>/, '').replace(/<audio>.*?<\/audio>/, '').trim();
-        const messageText = DOMPurify.sanitize(messageTextRaw);
-
-        const profilePicSrc = pfpMatch && base64Img.test(pfpMatch[1])
-          ? DOMPurify.sanitize(pfpMatch[1])
-          : '/static/default_pfp.jpg';
-
-        const profilePic = `<img src="${profilePicSrc}" class="profile-pic" alt="Profile Picture">`;
-
-        let media = "";
-        if (mediaMatch) {
-          const src = DOMPurify.sanitize(mediaMatch[1]);
-          if (base64Img.test(src)) {
-            media = `<img src="${src}" class="media-img" alt="Media" onclick="openMediaModal('${src}', false)">`;
-          } else if (base64Vid.test(src)) {
-            media = `<video class="media-video" controls onclick="openMediaModal('${src}', true)">
-                        <source src="${src}" type="video/mp4">Your browser does not support video.
-                     </video>`;
-          }
-        }
-
-        if (audioMatch) {
-          const src = DOMPurify.sanitize(audioMatch[1]);
-          media = `<audio controls class="media-audio">
-                     <source src="${src}" type="audio/webm">Your browser does not support the audio element.
-                   </audio>`;
-        }
-
-        showNotification(messageText || 'New media message');
-
-        return `
-          <div class="message-row">
-            ${profilePic}
-            <div class="message-bubble">
-              ${messageText ? `<p>${messageText}</p>` : ''}
-              ${media}
-            </div>
-          </div>`;
-      }).join('');
-
-      messagesDiv.innerHTML = DOMPurify.sanitize(messagesHTML, {
-        SAFE_FOR_JQUERY: true,
-        ADD_ATTR: ['onclick']
-      });
-
-      messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
-    }
-
-    async function sendMessage() {
-      const input = document.getElementById('messageInput');
-      const msg = input.value.trim();
-      if (!msg) return;
-
-      const sanitizedMsg = DOMPurify.sanitize(msg, {
-        ALLOWED_TAGS: [],
-        ALLOWED_ATTR: []
-      });
-
-      const message = `<pfp>${profilePicBase64}</pfp>${sanitizedMsg}`;
-
-      await fetch('/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message })
-      });
-
-      input.value = '';
-      fetchMessages();
-    }
-
-    function toggleSettings() {
-      const modal = document.getElementById('settings');
-      modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
-    }
-
-    function closeSettings() {
-      document.getElementById('settings').style.display = 'none';
-    }
-
-    function toggleTheme() {
-      document.body.classList.toggle('light-theme');
-    }
-
-    function openMediaModal(src, isVideo = false) {
-      const modal = document.getElementById("mediaModal");
-      modal.innerHTML = `<span class="close-btn" onclick="closeMediaModal(); event.stopPropagation();">&times;</span>`;
-
-      if (isVideo) {
-        const video = document.createElement('video');
-        video.controls = true;
-        video.src = src;
-        video.autoplay = true;
-        video.style.maxWidth = '90%';
-        video.style.maxHeight = '90%';
-        video.style.borderRadius = '10px';
-        modal.appendChild(video);
-      } else {
-        const img = document.createElement('img');
-        img.src = src;
-        img.style.maxWidth = '90%';
-        img.style.maxHeight = '90%';
-        img.style.borderRadius = '10px';
-        modal.appendChild(img);
-      }
-
-      modal.style.display = "flex";
-    }
-
-    function closeMediaModal() {
-      const modal = document.getElementById("mediaModal");
-      modal.style.display = "none";
-      modal.innerHTML = `<span class="close-btn" onclick="closeMediaModal(); event.stopPropagation();">&times;</span>`;
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      const savedPic = localStorage.getItem("profilePic");
-      if (savedPic) {
-        profilePicBase64 = savedPic;
-      }
-    });
-
-    function startVoiceRecording() {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          mediaRecorder = new MediaRecorder(stream);
-          audioChunks = [];
-          recordingStartTime = Date.now();
-
-          mediaRecorder.ondataavailable = event => {
-            audioChunks.push(event.data);
-          };
-
-          mediaRecorder.onstop = async () => {
-            clearInterval(recordingTimerInterval);
-            document.getElementById("recordingStatus").style.display = "none";
-
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            if (!audioBlob || !audioChunks.length) return;
-
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-              const audioBase64 = DOMPurify.sanitize(reader.result);
-              const message = `<pfp>${profilePicBase64}</pfp><audio>${audioBase64}</audio>`;
-              await fetch('/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message })
-              });
-              fetchMessages();
-            };
-            reader.readAsDataURL(audioBlob);
-          };
-
-          mediaRecorder.start();
-          startTimer();
-          document.getElementById('micButton').innerText = '⏹️';
-          document.getElementById('micButton').onclick = stopVoiceRecording;
-          document.getElementById("recordingStatus").style.display = "flex";
-        })
-        .catch(err => {
-          alert('Microphone access denied.');
-          console.error(err);
-        });
-    }
-
-    function stopVoiceRecording() {
-      mediaRecorder.stop();
-      document.getElementById('micButton').innerText = '🎤';
-      document.getElementById('micButton').onclick = startVoiceRecording;
-    }
-
-    function cancelVoiceRecording() {
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop(); 
-      }
-      audioChunks = [];
-      clearInterval(recordingTimerInterval);
-      document.getElementById("recordingStatus").style.display = "none";
-      document.getElementById('micButton').innerText = '🎤';
-      document.getElementById('micButton').onclick = startVoiceRecording;
-    }
-
-    function startTimer() {
-      const timerElement = document.getElementById('timer');
-      recordingTimerInterval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
-        const minutes = String(Math.floor(elapsed / 60)).padStart(2, '0');
-        const seconds = String(elapsed % 60).padStart(2, '0');
-        timerElement.textContent = `${minutes}:${seconds}`;
-
-        if (elapsed >= 60) {
-          cancelVoiceRecording();
-        }
-      }, 1000);
-    }
-  </script>
+  <input type="file" accept="image/*,video/*" id="mediaInput" hidden onchange="handleMediaChange(event)" />
 </body>
 </html>

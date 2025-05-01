@@ -54,7 +54,7 @@ Amnezichat offers a highly secure and privacy-focused messaging experience by en
     sudo apt update
     sudo apt install curl build-essential git
     curl https://sh.rustup.rs -sSf | sh -s -- -y
-    git clone https://github.com/umutcamliyurt/Amnezichat.git
+    git clone https://git.disroot.org/UmutCamliyurt/Amnezichat.git
     cd Amnezichat/server/
     cargo build --release
     cargo run --release
@@ -63,20 +63,20 @@ Amnezichat offers a highly secure and privacy-focused messaging experience by en
     
     sudo apt update
     sudo apt install docker.io git
-    git clone https://github.com/umutcamliyurt/Amnezichat.git
+    git clone https://git.disroot.org/UmutCamliyurt/Amnezichat.git
     cd Amnezichat/server/
-    sudo docker build -t amnezichatserver:latest .
-    sudo docker run -p 8080:8080 amnezichatserver:latest
+    docker build --network=host -t amnezichatserver:latest .
+    docker run --network=host amnezichatserver:latest
 
 ## Client setup:
 
 **For Web UI connect to http://localhost:8000**
 
     sudo apt update
-    sudo apt install curl build-essential git tor
+    sudo apt install curl build-essential git tor xterm
     sudo systemctl enable --now tor.service
     curl https://sh.rustup.rs -sSf | sh -s -- -y
-    git clone https://github.com/umutcamliyurt/Amnezichat.git
+    git clone https://git.disroot.org/UmutCamliyurt/Amnezichat.git
     cd Amnezichat/client/
     cargo build --release
     cargo run --release
@@ -85,10 +85,23 @@ Amnezichat offers a highly secure and privacy-focused messaging experience by en
 
     sudo apt update
     sudo apt install docker.io git
-    git clone https://github.com/umutcamliyurt/Amnezichat.git
+    git clone https://git.disroot.org/UmutCamliyurt/Amnezichat.git
     cd Amnezichat/client/
-    sudo docker build -t amnezichat:latest .
-    sudo docker run -p 8000:8000 amnezichat:latest
+    docker build --network=host -t amnezichat .
+    xhost +local:docker
+    docker run --rm \
+    --network=host \
+    -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    --env QT_X11_NO_MITSHM=1 \
+    amnezichat:latest
+
+## Client setup with Nix:
+
+    cd ./client
+    nix develop --extra-experimental-features nix-command --extra-experimental-features flakes
+    cargo build --release
+    cargo run --release
 
 ## Requirements:
 
@@ -98,6 +111,17 @@ Amnezichat offers a highly secure and privacy-focused messaging experience by en
 ## Screenshot:
 
 ![Screenshot](screenshot.png)
+
+<!-- MIRRORS -->
+## Git Mirrors
+
+You can access **Amnezichat** source code from multiple mirror repositories:
+
+- 🔗 **[Disroot Main Repository](https://git.disroot.org/UmutCamliyurt/Amnezichat)**
+- 🔗 **[Codeberg Mirror](https://codeberg.org/umutcamliyurt/Amnezichat)**
+- 🔗 **[GitHub Mirror](https://github.com/umutcamliyurt/Amnezichat)**
+- 🔗 **[NemesisCloud Mirror](http://c2vz25ugnpnrqmzcksavlzyxmy3eavcxnyxjbjqkez2svoj5dlc5x7id.onion/umutcamliyurt/Amnezichat)**
+- 🔗 **[EveryPizza Mirror](https://nemesisgit.everypizza.im/nemesis/Amnezichat)**
 
 <!-- LICENSE -->
 ## License

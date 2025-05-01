@@ -1,71 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Amnezichat</title>
-    <link rel="stylesheet" href="/static/styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Amnezichat</title>
+  <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-    <div class="container">
-        <h1>Download Amnezichat</h1>
-        <p>Anti-forensic and secure messaging. Download it now and get started.</p>
-        <a href="#download" class="download-button">Download Now</a>
+  <div class="container">
+    <h1>Amnezichat</h1>
+    <p class="tagline">Secure, ephemeral, anti-forensic messaging. Built for privacy.</p>
+    <a href="#download" class="button primary">Download Now</a>
 
-        <div id="footer">
-            <!-- Main Links -->
-            <div class="main-links">
-                <a href="https://github.com/umutcamliyurt/Amnezichat" target="_blank">Source Code</a>
-                <a href="http://aqfyl6g24k44oyes3n35nrnlhdfvdwfvi4a7umjalu4dcstuzkxft4id.onion" target="_blank">Onionsite</a>
-                <a href="http://epmrgx35crapamcxlpggowr7vg3fbxosmkow66konjomn4nlphda.b32.i2p" target="_blank">Eepsite</a>
-                <a href="https://github.com/umutcamliyurt/Amnezichat?tab=readme-ov-file#donate-to-support-development-of-this-project">Donate Monero</a>
-            </div>
+    <div id="footer">
+      <div class="main-links">
+        <a href="http://kgtz2pmmov5jfvn3z4mqryffjnnw6krzrgxxoyaqhqckjrr4pckyhsqd.onion/UmutCamliyurt/Amnezichat" target="_blank">Source</a>
+        <a href="http://aqfyl6g24k44oyes3n35nrnlhdfvdwfvi4a7umjalu4dcstuzkxft4id.onion" target="_blank">Onionsite</a>
+        <a href="http://epmrgx35crapamcxlpggowr7vg3fbxosmkow66konjomn4nlphda.b32.i2p" target="_blank">Eepsite</a>
+        <a href="http://kgtz2pmmov5jfvn3z4mqryffjnnw6krzrgxxoyaqhqckjrr4pckyhsqd.onion/UmutCamliyurt/Amnezichat?tab=readme-ov-file#donate-to-support-development-of-this-project" target="_blank">Donate Monero</a>
+      </div>
 
-            <!-- Privacy and Terms -->
-            <details id="terms-of-service-section">
-                <summary>Terms of Service</summary>
-                <p>By using Amnezichat, you agree to the following terms:</p>
-                <ul>
-                    <li>Use for lawful purposes only.</li>
-                    <li>Do not share illegal content.</li>
-                    <li>Respect others while using the platform.</li>
-                </ul>
-                <p>Amnezichat reserves the right to modify or discontinue the service without notice.</p>
-                <p>Contact: nemesisuks@protonmail.com</p>
-            </details>
+      <details>
+        <summary>Terms of Service</summary>
+        <ul>
+          <li>Use for lawful purposes only.</li>
+          <li>Do not share illegal content.</li>
+          <li>Respect others while using the platform.</li>
+        </ul>
+        <p>Service may be modified or discontinued without notice.</p>
+        <p>Contact: <a href="mailto:nemesisuks@protonmail.com">nemesisuks@protonmail.com</a></p>
+      </details>
 
-            <details>
-                <summary>Privacy Policy</summary>
-                <p>We value your privacy:</p>
-                <ul>
-                    <li>No personal information or chat logs are stored.</li>
-                    <li>Messages are encrypted and temporary.</li>
-                </ul>
-            </details>
-        </div>
+      <details>
+        <summary>Privacy Policy</summary>
+        <ul>
+          <li>No personal data or chat logs stored.</li>
+          <li>Messages are encrypted and temporary.</li>
+        </ul>
+      </details>
     </div>
+  </div>
 
-<div id="download" class="modal">
+  <div id="download" class="modal">
     <div class="modal-content">
-        <a href="#" class="close-button">&times;</a>
-        <h2>Installation Instructions</h2>
+      <a href="#" class="close-button" title="Close">&times;</a>
+      <h2>Installation Instructions</h2>
 
-        <h3>Build it Yourself</h3>
-        <pre>
+      <h3>Build it Yourself</h3>
+      <pre><code>
 sudo apt update
-sudo apt install curl build-essential git tor
+sudo apt install curl build-essential git tor xterm
 sudo systemctl enable --now tor.service
 curl https://sh.rustup.rs -sSf | sh -s -- -y
-git clone https://github.com/umutcamliyurt/Amnezichat.git
+git clone https://git.disroot.org/UmutCamliyurt/Amnezichat.git
 cd Amnezichat/client/
 cargo build --release
 cargo run --release
-        </pre>
+      </code></pre>
 
-        <h3>Or:</h3>
-        <a href="/static/Amnezichat-x86_64.AppImage" class="download-button" download>Download AppImage</a>
-        <a href="/static/Amnezichat-x86_64.deb" class="download-button" download>Download .deb Package</a>
+      <h3>Or Download:</h3>
+      <div class="download-options">
+        <a href="/static/Amnezichat-x86_64.AppImage" class="button secondary" download>AppImage</a>
+        <a href="/static/Amnezichat-x86_64.deb" class="button secondary" download>.deb Package</a>
+      </div>
+
+      <h3>Verify Downloads:</h3>
+      <p>For security, verify the files using the PGP signature:</p>
+      <div class="download-options">
+        <a href="/static/Amnezichat-public-key.asc" class="button secondary" download>PGP Public Key</a>
+        <a href="/static/Amnezichat-x86_64.AppImage.sig" class="button secondary" download>AppImage Signature</a>
+        <a href="/static/Amnezichat-x86_64.deb.sig" class="button secondary" download>.deb Signature</a>
+      </div>
     </div>
-</div>
+  </div>
 </body>
 </html>

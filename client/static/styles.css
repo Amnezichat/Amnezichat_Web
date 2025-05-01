@@ -1,10 +1,26 @@
 html, body {
     height: 100%;
     margin: 0;
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
     background-color: #121212;
+    background-image: url('/static/background.jpg');
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
     color: #e1e1e1;
     scroll-behavior: smooth;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    font-size: 14px; 
+    position: relative;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(18, 18, 18, 0.75); 
+    pointer-events: none;
+    z-index: -1;
 }
 
 * {
@@ -15,229 +31,326 @@ html, body {
 .container {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    width: 100%;
-    padding: 24px;
+    height: 100vh;   
+    width: 100vw;    
+    padding: 20px 26px; 
 }
 
-/* Messages area */
 #messages {
     flex-grow: 1;
+    min-height: 0;
     width: 100%;
     padding: 20px;
     overflow-y: auto;
-    background: rgba(44, 47, 54, 0.7);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(40, 44, 52, 0.2); 
+    backdrop-filter: blur(12px);
     border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    margin-bottom: 24px;
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+    gap: 14px;
+    margin-bottom: 26px;
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.3);
+}
+
+#messages::-webkit-scrollbar {
+    width: 8px; 
+}
+
+#messages::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-radius: 8px; 
+}
+
+#messages::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .message-row {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
+    gap: 12px; 
     max-width: 100%;
 }
 
 .profile-pic {
-    width: 48px;
-    height: 48px;
+    width: 44px; 
+    height: 44px;
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+    border: 1.5px solid #2e2e2e; 
 }
 
 .message-bubble {
-    background: linear-gradient(to bottom right, #3a3f4b, #2e333d);
-    padding: 12px 18px;
-    border-radius: 16px;
+    background: linear-gradient(145deg, #2b2f38, #1e2126);
+    padding: 12px 18px; 
+    border-radius: 16px; 
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 6px; 
     word-break: break-word;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); 
+    max-width: 80%;
+    position: relative;
+    font-size: 14px; 
+    line-height: 1.4;
+    color: #ccc;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
-.message-bubble p {
-    margin: 0;
-    line-height: 1.6;
-    font-size: 15px;
+.message-bubble:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
-/* Media content */
+.message-meta {
+    font-size: 11px; 
+    color: #8a8a8a;
+    align-self: flex-end;
+    user-select: none;
+}
+
 .media-img,
 .media-video {
-    width: 480px;
-    height: 480px;
+    width: 400px; 
+    height: 400px;
     object-fit: cover;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    border-radius: 12px; 
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+    transition: box-shadow 0.3s ease;
 }
 
-/* Input section */
+.media-img:hover,
+.media-video:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
 .input-container {
     display: flex;
-    gap: 12px;
+    gap: 12px; 
     align-items: center;
     width: 100%;
+    background-color: rgba(40, 44, 52, 0.6);
+    padding: 10px 14px; 
+    border-radius: 26px; 
+    backdrop-filter: blur(8px);
+    box-shadow: 0 5px 16px rgba(0, 0, 0, 0.12);
+    transition: background-color 0.3s ease;
 }
 
 input[type="text"] {
     flex-grow: 1;
-    padding: 12px 16px;
-    border-radius: 30px;
-    border: 1px solid #3a3f4b;
-    background-color: #1f2128;
+    padding: 12px 16px; 
+    border-radius: 24px; 
+    border: 1.3px solid #3c3f4a; 
+    background-color: #1f2228;
     color: #e1e1e1;
-    font-size: 15px;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+    font-size: 14px; 
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 input[type="text"]:focus {
     outline: none;
-    border-color: #4c8bf5;
-    box-shadow: 0 0 0 3px rgba(76, 139, 245, 0.25);
+    border-color: #888;
+    box-shadow: 0 0 0 3px rgba(136, 136, 136, 0.35);
 }
 
-/* Button styles */
+input[type="text"]:focus-visible {
+    outline: 2px solid rgba(136, 136, 136, 0.6);
+    outline-offset: 2px;
+}
+
 button {
-    padding: 10px 22px;
+    padding: 10px 22px; 
     border: none;
-    border-radius: 30px;
-    background: linear-gradient(135deg, #4c8bf5, #3b74d4);
-    color: white;
+    border-radius: 26px; 
+    background: linear-gradient(135deg, #4b4b4b, #2f2f2f);
+    color: #ddd;
     cursor: pointer;
-    font-size: 15px;
-    font-weight: 600;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    font-size: 14px; 
+    font-weight: 700;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+    transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, transform 0.15s ease;
+    user-select: none;
 }
 
 button:hover {
-    background: linear-gradient(135deg, #3b74d4, #2f5eb8);
+    background: linear-gradient(135deg, #6a6a6a, #505050);
+    color: #eee;
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.75);
+    transform: translateY(-1.5px);
 }
 
 button:active {
-    background: #2f5eb8;
-    transform: scale(0.98);
+    background: #383838;
+    color: #ccc;
+    transform: scale(0.95);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
 }
 
-/* Settings overlay */
-#settings {
+button:focus-visible {
+    outline: 2px solid rgba(136, 136, 136, 0.8);
+    outline-offset: 2px;
+}
+
+#settings,
+#mediaModal {
     display: none;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(6px);
+    width: 100vw;
+    height: 100vh;
     justify-content: center;
     align-items: center;
+    z-index: 1000;
+
+    background-color: rgba(0, 0, 0, 0.5);
+
+    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
-/* Settings content */
+#settings.active,
+#mediaModal.active {
+    display: flex;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+}
+
 .settings-content {
-    background-color: #1f2229;
-    padding: 24px;
-    border-radius: 16px;
-    width: 320px;
+    background-color: #22262e;
+    padding: 22px 26px; 
+    border-radius: 20px; 
+    width: 320px; 
+    max-width: 90%;
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    gap: 14px; 
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .settings-content h2 {
-    margin-top: 0;
-    color: #ffffff;
-    font-size: 20px;
-}
-
-/* Modal styles */
-#mediaModal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0,0,0,0.85);
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
+    margin: 0;
+    color: #f0f0f0;
+    font-size: 20px; 
+    font-weight: 700;
+    letter-spacing: 0.03em;
 }
 
 #mediaModal img,
 #mediaModal video {
-    max-width: 90%;
-    max-height: 90%;
-    border-radius: 16px;
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: 24px;
     object-fit: contain;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
 }
 
 #mediaModal .close-btn {
     position: absolute;
-    top: 20px;
-    right: 30px;
-    font-size: 32px;
-    color: white;
+    top: 20px; 
+    right: 28px; 
+    font-size: 28px; 
+    color: #fff;
     cursor: pointer;
-    z-index: 1001;
+    user-select: none;
+    transition: color 0.3s ease;
 }
 
-/* Light Theme Modernization */
+#mediaModal .close-btn:hover {
+    color: #f44336;
+}
+
 body.light-theme {
-    background-color: #f1f3f5;
-    color: #1a1a1a;
+    background-color: #f5f7fa;
+    color: #222;
+    background-image: none; 
 }
 
 body.light-theme #messages {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(12px);
-    border: 1px solid #ccc;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(18px);
+    border: 1px solid #ddd;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
 }
 
 body.light-theme .message-bubble {
-    background: #ffffff;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    color: #333;
 }
 
 body.light-theme input[type="text"] {
-    background-color: #ffffff;
-    color: #1a1a1a;
+    background-color: #fff;
+    color: #222;
     border-color: #ccc;
 }
 
 body.light-theme input[type="text"]:focus {
-    border-color: #4c8bf5;
-    box-shadow: 0 0 0 3px rgba(76, 139, 245, 0.2);
+    border-color: #666;
+    box-shadow: 0 0 0 4px rgba(102, 102, 102, 0.25);
 }
 
 body.light-theme button {
-    background: linear-gradient(135deg, #4c8bf5, #3b74d4);
-    color: white;
+    background: linear-gradient(135deg, #a3a3a3, #858585);
+    color: #222;
+}
+
+body.light-theme button:hover {
+    background: linear-gradient(135deg, #b3b3b3, #969696);
+}
+
+body.light-theme button:active {
+    background: #8f8f8f;
 }
 
 body.light-theme .settings-content {
-    background-color: #ffffff;
-    color: #1a1a1a;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+    color: #222;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
 body.light-theme .settings-content h2 {
-    color: #1a1a1a;
+    color: #222;
 }
 
 body.light-theme .media-img,
 body.light-theme .media-video {
     border: 1px solid #ddd;
+}
+
+@media (max-width: 768px) {
+    .media-img,
+    .media-video {
+        width: 100%;
+        height: auto;
+    }
+
+    .profile-pic {
+        width: 36px; 
+        height: 36px;
+    }
+
+    .message-bubble {
+        padding: 10px 14px; 
+        font-size: 13px; 
+    }
+
+    .settings-content {
+        width: 90%;
+        padding: 16px; 
+    }
+
+    .input-container {
+        padding: 8px 10px; 
+    }
 }
