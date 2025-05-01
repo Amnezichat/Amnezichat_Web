@@ -65,15 +65,15 @@ Amnezichat offers a highly secure and privacy-focused messaging experience by en
     sudo apt install docker.io git
     git clone https://github.com/umutcamliyurt/Amnezichat.git
     cd Amnezichat/server/
-    sudo docker build -t amnezichatserver:latest .
-    sudo docker run -p 8080:8080 amnezichatserver:latest
+    docker build --network=host -t amnezichatserver:latest .
+    docker run --network=host amnezichatserver:latest
 
 ## Client setup:
 
 **For Web UI connect to http://localhost:8000**
 
     sudo apt update
-    sudo apt install curl build-essential git tor
+    sudo apt install curl build-essential git tor xterm
     sudo systemctl enable --now tor.service
     curl https://sh.rustup.rs -sSf | sh -s -- -y
     git clone https://github.com/umutcamliyurt/Amnezichat.git
@@ -87,8 +87,15 @@ Amnezichat offers a highly secure and privacy-focused messaging experience by en
     sudo apt install docker.io git
     git clone https://github.com/umutcamliyurt/Amnezichat.git
     cd Amnezichat/client/
-    sudo docker build -t amnezichat:latest .
-    sudo docker run -p 8000:8000 amnezichat:latest
+    docker build --network=host -t amnezichat .
+    xhost +local:docker
+    docker run --rm \
+    --network=host \
+    -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    --env QT_X11_NO_MITSHM=1 \
+    amnezichat:latest
+
 
 ## Requirements:
 

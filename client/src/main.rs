@@ -51,6 +51,7 @@ use std::{
     collections::HashSet,
     error::Error,
 };
+use std::fs;
 use serde::{Deserialize, Serialize};
 use chacha20poly1305::aead::OsRng;
 use rand::RngCore;
@@ -61,6 +62,9 @@ use rfd::MessageDialog;
 use rfd::MessageButtons;
 use rfd::MessageLevel;
 use rfd::MessageDialogResult;
+use std::process::Stdio;
+use std::os::unix::fs::PermissionsExt;
+use which::which;
 
 fn get_raw_bytes_public_key(pk: &PublicKey) -> &[u8] {
     pk.as_ref() 
@@ -250,11 +254,8 @@ impl Default for AppState {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut options = eframe::NativeOptions::default();
-
-    options.viewport.resizable = Some(false);  
-
-    options.viewport.inner_size = Some(egui::vec2(600.0, 900.0));  
-
+    options.viewport.resizable = Some(false);
+    options.viewport.inner_size = Some(egui::vec2(600.0, 1000.0));
     eframe::run_native("Messaging Setup", options, Box::new(|_cc| Box::new(SetupApp::default())))?;
     Ok(())
 }
@@ -284,7 +285,6 @@ impl eframe::App for SetupApp {
                         ui.label(egui::RichText::new("Choose an action:").size(24.0));
                         ui.add_space(10.0);
                         ui.horizontal_wrapped(|ui| {
-
                             ui.add_space(20.0); 
                             if ui.add(
                                 egui::Button::new(egui::RichText::new("➕ Create Room").size(24.0))
@@ -390,9 +390,23 @@ impl eframe::App for SetupApp {
                     if let Err(err) = validate_and_start(self.state.clone()) {
                         self.state.error_message = Some(err.to_string());
                     } else {
-
                         self.state.show_url_label = true;
                     }
+                }
+
+                ui.add_space(20.0);
+
+                if ui.add(
+                    egui::Button::new(egui::RichText::new("🌐 Host Server").size(24.0))
+                        .fill(egui::Color32::from_rgb(30, 30, 150))
+                        .min_size(egui::vec2(250.0, 50.0))
+                ).clicked() {
+                    self.state.error_message = None;
+                    std::thread::spawn(|| {
+                        if let Err(e) = host_server() {
+                            eprintln!("Host server error: {}", e);
+                        }
+                    });
                 }
 
                 if let Some(err) = &self.state.error_message {
@@ -407,6 +421,110 @@ impl eframe::App for SetupApp {
             });
         });
     }
+}
+
+fn host_server() -> Result<(), Box<dyn std::error::Error>> {
+    let pkg_install = if which("apt").is_ok() {
+        "sudo apt update && sudo apt install -y git curl build-essential tor"
+    } else if which("dnf").is_ok() {
+        "sudo dnf install -y git curl gcc cmake make kernel-devel tor"
+    } else if which("pacman").is_ok() {
+        "sudo pacman -Sy --noconfirm git curl base-devel tor"
+    } else {
+        return Err("No supported package manager found".into());
+    };
+
+    Command::new("xterm")
+        .arg("-e")
+        .arg(format!("bash -c '{}'", pkg_install))
+        .spawn()?
+        .wait()?;
+
+    let setup_script = r#"
+        #!/bin/bash
+        set -e
+
+        # Install Rust if not already installed
+        if ! command -v cargo &> /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+            source $HOME/.cargo/env
+        fi
+
+        # Clone the repo if not already cloned
+        if [ ! -d "Amnezichat" ]; then
+            git clone https://github.com/umutcamliyurt/Amnezichat.git
+        fi
+
+        cd Amnezichat
+
+        # Clean everything except 'server'
+        find . -mindepth 1 -maxdepth 1 ! -name 'server' -exec rm -rf {} +
+
+        cd server
+        cargo build --release
+        cargo run --release
+    "#;
+
+    fs::write("start_server.sh", setup_script)?;
+    fs::set_permissions("start_server.sh", fs::Permissions::from_mode(0o755))?;
+
+    Command::new("xterm")
+        .arg("-e")
+        .arg("bash -c './start_server.sh'")
+        .spawn()?
+        .wait()?;
+
+    configure_tor_for_onion_service()?;
+
+    Ok(())
+}
+
+fn configure_tor_for_onion_service() -> Result<(), Box<dyn std::error::Error>> {
+    let hidden_dir = "./hidden_service";
+    fs::create_dir_all(hidden_dir)?;
+    fs::set_permissions(hidden_dir, fs::Permissions::from_mode(0o700))?;
+
+    let torrc_path = format!("{}/torrc", hidden_dir);
+    let torrc_content = format!(
+        "HiddenServiceDir {}\nHiddenServicePort 80 127.0.0.1:8080\n",
+        hidden_dir
+    );
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&torrc_path)?;
+    file.write_all(torrc_content.as_bytes())?;
+
+    let _ = Command::new("pkill").arg("tor").output();
+
+    let tor_cmd = format!("tor -f {}", torrc_path);
+    Command::new("nohup")
+        .arg("bash")
+        .arg("-c")
+        .arg(&tor_cmd)
+        .stdout(Stdio::null()) 
+        .stderr(Stdio::null()) 
+        .spawn()?;
+
+    let hostname_path = format!("{}/hostname", hidden_dir);
+    let start_time = std::time::Instant::now();
+    while !Path::new(&hostname_path).exists() {
+        if start_time.elapsed().as_secs() > 30 {
+            return Err("Timeout waiting for Tor to create the .onion address.".into());
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+
+    let onion = fs::read_to_string(&hostname_path)?.trim().to_string();
+    println!("Your Amnezichat server is live at: http://{}", onion);
+
+    MessageDialog::new()
+        .set_title("Tor Hidden Service")
+        .set_description(&format!("Your Amnezichat server is live at: http://{}", onion))
+        .show();
+
+    Ok(())
 }
 
 fn validate_and_start(state: AppState) -> Result<(), Box<dyn Error>> {
