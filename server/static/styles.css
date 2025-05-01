@@ -133,3 +133,7 @@ details p, details ul {
 .close-button:hover {
     color: #c0392b;
 }
+
+.modal-content a.download-button {
+    margin-left: 15px;
+}

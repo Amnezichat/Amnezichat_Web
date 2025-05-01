@@ -104,8 +104,6 @@ Amnezichat offers a highly secure and privacy-focused messaging experience by en
 
 Distributed under the GPLv3 License. See `LICENSE` for more information.
 
-## [Join us](https://matrix.to/#/#amnezichat_official:matrix.org) on Matrix!
-
 ## Donate to support development of this project!
 
 **Monero(XMR):** 88a68f2oEPdiHiPTmCc3ap5CmXsPc33kXJoWVCZMPTgWFoAhhuicJLufdF1zcbaXhrL3sXaXcyjaTaTtcG1CskB4Jc9yyLV

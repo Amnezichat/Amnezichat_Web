@@ -104,8 +104,6 @@ Amnezichat, hiçbir kayıt tutulmamasını ve tüm mesaj verilerinin yalnızca s
 
 GPLv3 Lisansı altında dağıtılmaktadır. Daha fazla bilgi için `LICENSE` dosyasına bakın.
 
-## Matrix üzerinden [bize katılın!](https://matrix.to/#/#amnezichat_official:matrix.org)
-
 ## Bu projenin geliştirilmesini desteklemek için bağış yapın!
 
 **Monero(XMR):** 88a68f2oEPdiHiPTmCc3ap5CmXsPc33kXJoWVCZMPTgWFoAhhuicJLufdF1zcbaXhrL3sXaXcyjaTaTtcG1CskB4Jc9yyLV
