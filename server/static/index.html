@@ -1,57 +1,102 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Amnezichat</title>
-    <link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
-    <div class="container">
-        <h1>Download Amnezichat</h1>
-        <p>Anti-forensic and secure messaging. Download it now and get started.</p>
-        <a href="#download" class="download-button">Download Now</a>
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
+        <title>Amnezichat</title>
+        <link rel="stylesheet" href="/static/styles.css" />
+    </head>
+    <body>
+        <div
+            class="bg-gray-900 h-screen flex flex-col items-center justify-center text-white"
+        >
+                <h1 class="h-14 bg-linear-65 from-purple-500 to-pink-500 text-6xl font-bold text-transparent bg-clip-text">Amnezichat</h1>
+                <p>
+                    Anti-forensic and secure messaging. Download it now and get
+                    started. Intended for secure chats that <span class="bg-gradient-to-r from-pink-200 to-transparent inline-block text-transparent bg-clip-text">disappear when you're
+                    done.</span>
+                </p>
+                <br />
+                <a
+                    href="#download"
+                    class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded-full transition duration-300 text-2xl m-5"
+                    >Download Now</a
+                >
+                <br />
+                <br />
+                    <!-- Main Links -->
+                    <div class="main-links">
+                        <a
+                            href="https://github.com/umutcamliyurt/Amnezichat"
+                            target="_blank"
+                            class="bg-blue-300 hover:bg-blue-400 text-gray-900 py-2 px-6 rounded-full transition duration-300"
+                            >Source Code</a
+                        >
+                        <a
+                            href="http://aqfyl6g24k44oyes3n35nrnlhdfvdwfvi4a7umjalu4dcstuzkxft4id.onion"
+                            target="_blank"
+                            class="bg-blue-300 hover:bg-blue-400 text-gray-900 py-2 px-6 rounded-full transition duration-300"
+                            >Onionsite</a
+                        >
+                        <a
+                            href="http://epmrgx35crapamcxlpggowr7vg3fbxosmkow66konjomn4nlphda.b32.i2p"
+                            target="_blank"
+                            class="bg-blue-300 hover:bg-blue-400 text-gray-900 py-2 px-6 rounded-full transition duration-300"
+                            >Eepsite</a
+                        >
+                        <a
+                            href="https://github.com/umutcamliyurt/Amnezichat?tab=readme-ov-file#donate-to-support-development-of-this-project"
+                            class="bg-blue-300 hover:bg-blue-400 text-gray-900 py-2 px-6 rounded-full transition duration-300"
+                            >Donate Monero</a
+                        >
+                    </div>
+                    <br />
+                    <!-- Privacy and Terms -->
+                    <details id="terms-of-service-section" class="pt-3">
+                        <summary class="bg-gray-950 p-3 rounded-lg cursor-pointer shadow">Terms of Service</summary>
+                        <p>
+                            By using Amnezichat, you agree to the following
+                            terms:
+                        </p>
+                        <ul>
+                            <li>Use for lawful purposes only.</li>
+                            <li>Do not share illegal content.</li>
+                            <li>Respect others while using the platform.</li>
+                        </ul>
+                        <p>
+                            Amnezichat reserves the right to modify or
+                            discontinue the service without notice.
+                        </p>
+                        <small class="text-gray-500">
+                            We can't actually enforce these. Please keep them
+                            in mind though.
+                        </small>
+                        <p>Contact: nemesisuks@protonmail.com</p>
+                    </details>
 
-        <div id="footer">
-            <!-- Main Links -->
-            <div class="main-links">
-                <a href="https://github.com/umutcamliyurt/Amnezichat" target="_blank">Source Code</a>
-                <a href="http://aqfyl6g24k44oyes3n35nrnlhdfvdwfvi4a7umjalu4dcstuzkxft4id.onion" target="_blank">Onionsite</a>
-                <a href="http://epmrgx35crapamcxlpggowr7vg3fbxosmkow66konjomn4nlphda.b32.i2p" target="_blank">Eepsite</a>
-                <a href="https://github.com/umutcamliyurt/Amnezichat?tab=readme-ov-file#donate-to-support-development-of-this-project">Donate Monero</a>
+                    <details class="pt-3">
+                        <summary class="bg-gray-950 p-3 rounded-lg cursor-pointer shadow">Privacy Policy</summary>
+                        <p>We value your privacy:</p>
+                        <ul>
+                            <li>
+                                No personal information or chat logs are stored.
+                            </li>
+                            <li>Messages are <span class="text-green-400">encrypted</span> and <span class="text-green-400">temporary</span>.</li>
+                        </ul>
+                    </details>
+                </div>
             </div>
 
-            <!-- Privacy and Terms -->
-            <details id="terms-of-service-section">
-                <summary>Terms of Service</summary>
-                <p>By using Amnezichat, you agree to the following terms:</p>
-                <ul>
-                    <li>Use for lawful purposes only.</li>
-                    <li>Do not share illegal content.</li>
-                    <li>Respect others while using the platform.</li>
-                </ul>
-                <p>Amnezichat reserves the right to modify or discontinue the service without notice.</p>
-                <p>Contact: nemesisuks@protonmail.com</p>
-            </details>
+            <div id="download" class="modal">
+                <div class="modal-content">
+                    <a href="#" class="close-button">&times;</a>
+                    <h2>Installation Instructions</h2>
 
-            <details>
-                <summary>Privacy Policy</summary>
-                <p>We value your privacy:</p>
-                <ul>
-                    <li>No personal information or chat logs are stored.</li>
-                    <li>Messages are encrypted and temporary.</li>
-                </ul>
-            </details>
-        </div>
-    </div>
-
-<div id="download" class="modal">
-    <div class="modal-content">
-        <a href="#" class="close-button">&times;</a>
-        <h2>Installation Instructions</h2>
-
-        <h3>Build it Yourself</h3>
-        <pre>
+                    <h3>Build it Yourself</h3>
+                    <pre>
 sudo apt update
 sudo apt install curl build-essential git tor xterm
 sudo systemctl enable --now tor.service
@@ -60,12 +105,24 @@ git clone https://github.com/umutcamliyurt/Amnezichat.git
 cd Amnezichat/client/
 cargo build --release
 cargo run --release
-        </pre>
+        </pre
+                    >
 
-        <h3>Or:</h3>
-        <a href="/static/Amnezichat-x86_64.AppImage" class="download-button" download>Download AppImage</a>
-        <a href="/static/Amnezichat-x86_64.deb" class="download-button" download>Download .deb Package</a>
-    </div>
-</div>
-</body>
+                    <h3>Or:</h3>
+                    <a
+                        href="/static/Amnezichat-x86_64.AppImage"
+                        class="download-button"
+                        download
+                        >Download AppImage</a
+                    >
+                    <a
+                        href="/static/Amnezichat-x86_64.deb"
+                        class="download-button"
+                        download
+                        >Download .deb Package</a
+                    >
+                </div>
+            </div>
+        </div>
+    </body>
 </html>
