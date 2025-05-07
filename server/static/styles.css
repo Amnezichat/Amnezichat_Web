@@ -409,6 +409,9 @@
     --tw-font-weight: var(--font-weight-semibold);
     font-weight: var(--font-weight-semibold);
   }
+  .text-blue-300 {
+    color: var(--color-blue-300);
+  }
   .text-gray-500 {
     color: var(--color-gray-500);
   }
@@ -518,6 +521,13 @@
       @media (hover: hover) {
         --tw-gradient-to: var(--color-blue-500);
         --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
+      }
+    }
+  }
+  .hover\:text-blue-400 {
+    &:hover {
+      @media (hover: hover) {
+        color: var(--color-blue-400);
       }
     }
   }
