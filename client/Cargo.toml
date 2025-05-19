@@ -9,7 +9,6 @@ reqwest = { version = "0.11", features = ["blocking", "json", "socks"] }
 ipnetwork = "0.18.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-oqs = "0.10.0"
 regex = "1.7"
 rand = "0.8.4"
 chacha20poly1305 = "0.10"
@@ -26,3 +25,17 @@ eframe = "0.26"
 egui = "0.26"
 rfd = "0.12"
 which = "4.4"
+icu_collections = "=2.0.0-beta1"
+litemap = "=0.7.4"
+native-tls = "=0.2.13"
+home = "=0.5.9"
+potential_utf = "=0.1.0"
+yoke = "=0.7.5"
+base64ct = "=1.6.0"
+zerovec = "=0.11.0"
+zerofrom = "=0.1.5"
+
+[dependencies.oqs]
+version = "0.10.0"
+default-features = false
+features = ["sigs", "kems"]
