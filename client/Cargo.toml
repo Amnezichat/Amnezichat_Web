@@ -38,4 +38,4 @@ zerofrom = "=0.1.5"
 [dependencies.oqs]
 version = "0.10.0"
 default-features = false
-features = ["sigs", "kems"]
+features = ["std", "sigs", "kems"]
