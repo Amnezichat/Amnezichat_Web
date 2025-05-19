@@ -34,6 +34,7 @@ yoke = "=0.7.5"
 base64ct = "=1.6.0"
 zerovec = "=0.11.0"
 zerofrom = "=0.1.5"
+toml = "0.8"
 
 [dependencies.oqs]
 version = "0.10.0"

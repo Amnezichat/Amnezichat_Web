@@ -13,15 +13,24 @@ struct Message {
 }
 
 pub fn create_client_with_proxy(proxy: &str) -> Client {
-
-    let transport = reqwest::blocking::Client::builder()
-        .danger_accept_invalid_certs(false) 
-        .proxy(reqwest::Proxy::all(proxy).expect("Invalid proxy address")) 
+    if proxy == "" {
+        let transport = reqwest::blocking::Client::builder()
+        .danger_accept_invalid_certs(false)
 
         .build()
         .unwrap();
 
     transport
+    } else {
+        let transport = reqwest::blocking::Client::builder()
+        .danger_accept_invalid_certs(false)
+        .proxy(reqwest::Proxy::all(proxy).expect("Invalid proxy address"))
+
+        .build()
+        .unwrap();
+
+    transport
+    }
 }
 
 pub fn fetch_kyber_pubkey(password: &str, server_url: &str) -> Option<String> {
@@ -33,8 +42,10 @@ pub fn fetch_kyber_pubkey(password: &str, server_url: &str) -> Option<String> {
 
     let proxy = if server_url.contains(".i2p") {
         "http://127.0.0.1:4444" 
+    } else if server_url.contains(".onion") {
+        "socks5h://127.0.0.1:9050"
     } else {
-        "socks5h://127.0.0.1:9050" 
+        ""
     };
     let client = create_client_with_proxy(proxy);
 
@@ -92,8 +103,10 @@ pub fn fetch_dilithium_pubkeys(password: &str, server_url: &str) -> Vec<String> 
 
     let proxy = if server_url.contains(".i2p") {
         "http://127.0.0.1:4444" 
+    } else if server_url.contains(".onion") {
+        "socks5h://127.0.0.1:9050"
     } else {
-        "socks5h://127.0.0.1:9050" 
+        ""
     };
     let client = create_client_with_proxy(proxy);
 
@@ -159,8 +172,10 @@ pub fn fetch_eddsa_pubkeys(password: &str, server_url: &str) -> Vec<String> {
 
     let proxy = if server_url.contains(".i2p") {
         "http://127.0.0.1:4444" 
+    } else if server_url.contains(".onion") {
+        "socks5h://127.0.0.1:9050"
     } else {
-        "socks5h://127.0.0.1:9050" 
+        ""
     };
     let client = create_client_with_proxy(proxy);
 
@@ -226,8 +241,10 @@ pub fn fetch_ciphertext(password: &str, server_url: &str) -> String {
 
     let proxy = if server_url.contains(".i2p") {
         "http://127.0.0.1:4444" 
+    } else if server_url.contains(".onion") {
+        "socks5h://127.0.0.1:9050"
     } else {
-        "socks5h://127.0.0.1:9050" 
+        ""
     };
     let client = create_client_with_proxy(proxy);
 
@@ -270,8 +287,10 @@ pub fn send_kyber_pubkey(room_id: &str, public_key: &str, url: &str) {
 
     let proxy = if url.contains(".i2p") {
         "http://127.0.0.1:4444" 
+    } else if url.contains(".onion") {
+        "socks5h://127.0.0.1:9050"
     } else {
-        "socks5h://127.0.0.1:9050" 
+        ""
     };
     let client = create_client_with_proxy(proxy);
 
@@ -300,8 +319,10 @@ pub fn send_dilithium_pubkey(room_id: &str, public_key: &str, url: &str) {
 
     let proxy = if url.contains(".i2p") {
         "http://127.0.0.1:4444" 
+    } else if url.contains(".onion") {
+        "socks5h://127.0.0.1:9050"
     } else {
-        "socks5h://127.0.0.1:9050" 
+        ""
     };
     let client = create_client_with_proxy(proxy);
 
@@ -330,8 +351,10 @@ pub fn send_eddsa_pubkey(room_id: &str, public_key: &str, url: &str) {
 
     let proxy = if url.contains(".i2p") {
         "http://127.0.0.1:4444" 
+    } else if url.contains(".onion") {
+        "socks5h://127.0.0.1:9050"
     } else {
-        "socks5h://127.0.0.1:9050" 
+        ""
     };
     let client = create_client_with_proxy(proxy);
 
@@ -360,8 +383,10 @@ pub fn send_ciphertext(room_id: &str, ciphertext: &str, url: &str) {
 
     let proxy = if url.contains(".i2p") {
         "http://127.0.0.1:4444" 
+    } else if url.contains(".onion") {
+        "socks5h://127.0.0.1:9050"
     } else {
-        "socks5h://127.0.0.1:9050" 
+        ""
     };
     let client = create_client_with_proxy(proxy);
 
@@ -388,8 +413,10 @@ pub fn send_encrypted_message(
 
     let proxy = if server_url.contains(".i2p") {
         "http://127.0.0.1:4444" 
+    } else if server_url.contains(".onion") {
+        "socks5h://127.0.0.1:9050"
     } else {
-        "socks5h://127.0.0.1:9050" 
+        ""
     };
     let client = create_client_with_proxy(proxy);
 
@@ -428,8 +455,10 @@ pub fn receive_and_fetch_messages(
 
     let proxy = if server_url.contains(".i2p") {
         "http://127.0.0.1:4444" 
+    } else if server_url.contains(".onion") {
+        "socks5h://127.0.0.1:9050"
     } else {
-        "socks5h://127.0.0.1:9050" 
+        ""
     };
     let client = create_client_with_proxy(proxy);
 

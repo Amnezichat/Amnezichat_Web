@@ -63,6 +63,8 @@ use rfd::MessageButtons;
 use rfd::MessageLevel;
 use rfd::MessageDialogResult;
 use std::process::Stdio;
+use rocket::Config;
+
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use which::which;
@@ -257,137 +259,189 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut options = eframe::NativeOptions::default();
     options.viewport.resizable = Some(false);
     options.viewport.inner_size = Some(egui::vec2(600.0, 1000.0));
-    eframe::run_native("Messaging Setup", options, Box::new(|_cc| Box::new(SetupApp::default())))?;
+    eframe::run_native(
+        "Messaging Setup",
+        options,
+        Box::new(|_cc| Box::new(SetupApp::new())),
+    )?;
     Ok(())
 }
 
 struct SetupApp {
     state: AppState,
+    config_server_url: String,
 }
 
-impl Default for SetupApp {
-    fn default() -> Self {
+impl SetupApp {
+    fn new() -> Self {
+        let config_server_url = load_server_url_from_rocket_toml()
+            .unwrap_or_else(|_| "http://127.0.0.1:8000".to_string());
+
         Self {
             state: AppState::default(),
+            config_server_url,
         }
     }
 }
 
+fn load_server_url_from_rocket_toml() -> Result<String, Box<dyn std::error::Error>> {
+    let config = Config::figment().extract::<Config>()?;
+    let address = config.address.to_string();
+    let port = config.port;
+    Ok(format!("http://{}:{}", address, port))
+}
+
 impl eframe::App for SetupApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.set_visuals(egui::Visuals::dark());
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(20.0);
                 ui.heading(egui::RichText::new("Amnezichat").size(40.0));
                 ui.add_space(30.0);
 
-                egui::Frame::group(ui.style()).inner_margin(egui::style::Margin::symmetric(20.0, 20.0)).show(ui, |ui| {
-                    ui.vertical_centered(|ui| {
-                        ui.label(egui::RichText::new("Choose an action:").size(24.0));
-                        ui.add_space(10.0);
-                        ui.horizontal_wrapped(|ui| {
-                            ui.add_space(20.0); 
-                            if ui.add(
-                                egui::Button::new(egui::RichText::new("➕ Create Room").size(24.0))
-                                    .min_size(egui::vec2(200.0, 60.0))
-                                    .fill(egui::Color32::from_rgb(50, 50, 50)) 
-                            ).clicked() {
-                                self.state.choice = "create".into();
-                                self.state.room_id_input = generate_random_room_id();
-                            }
-                            ui.add_space(100.0); 
-                            if ui.add(
-                                egui::Button::new(egui::RichText::new("🔗 Join Room").size(24.0))
-                                    .min_size(egui::vec2(200.0, 60.0))
-                                    .fill(egui::Color32::from_rgb(50, 50, 50)) 
-                            ).clicked() {
-                                self.state.choice = "join".into();
-                            }
-                        });
-
-                        ui.add_space(20.0);
-
-                        match self.state.choice.as_str() {
-                            "join" => {
-                                ui.separator();
-                                ui.label(egui::RichText::new("🔑 Enter Room ID:").size(22.0));
-                                ui.add(
-                                    egui::TextEdit::singleline(&mut self.state.room_id_input)
-                                        .font(egui::TextStyle::Heading)
-                                        .desired_width(300.0)
-                                );
-                            }
-                            "create" => {
-                                if !self.state.room_id_input.is_empty() {
-                                    ui.separator();
-                                    ui.label(egui::RichText::new("🆔 Generated Room ID:").size(22.0));
-                                    ui.code(egui::RichText::new(&self.state.room_id_input).size(20.0));
+                egui::Frame::group(ui.style())
+                    .inner_margin(egui::style::Margin::symmetric(20.0, 20.0))
+                    .show(ui, |ui| {
+                        ui.vertical_centered(|ui| {
+                            ui.label(egui::RichText::new("Choose an action:").size(24.0));
+                            ui.add_space(10.0);
+                            ui.horizontal_wrapped(|ui| {
+                                ui.add_space(20.0);
+                                if ui
+                                    .add(
+                                        egui::Button::new(
+                                            egui::RichText::new("➕ Create Room").size(24.0),
+                                        )
+                                        .min_size(egui::vec2(200.0, 60.0))
+                                        .fill(egui::Color32::from_rgb(50, 50, 50)),
+                                    )
+                                    .clicked()
+                                {
+                                    self.state.choice = "create".into();
+                                    self.state.room_id_input = generate_random_room_id();
                                 }
-                            }
-                            _ => {}
-                        }
-                    });
-                });
-
-                ui.add_space(30.0);
-
-                egui::Frame::group(ui.style()).inner_margin(egui::style::Margin::symmetric(20.0, 20.0)).show(ui, |ui| {
-                    ui.vertical_centered(|ui| {
-                        ui.heading(egui::RichText::new("🔧 Connection Details").size(36.0));
-                        ui.add_space(20.0);
-
-                        egui::Grid::new("connection_details")
-                            .num_columns(2)
-                            .spacing([50.0, 16.0])
-                            .show(ui, |ui| {
-                                ui.label(egui::RichText::new("Server URL:").size(22.0));
-                                ui.add(
-                                    egui::TextEdit::singleline(&mut self.state.server_url)
-                                        .font(egui::TextStyle::Heading)
-                                        .desired_width(300.0)
-                                );
-                                ui.end_row();
-
-                                ui.label(egui::RichText::new("Username:").size(22.0));
-                                ui.add(
-                                    egui::TextEdit::singleline(&mut self.state.username)
-                                        .font(egui::TextStyle::Heading)
-                                        .desired_width(300.0)
-                                );
-                                ui.end_row();
-
-                                ui.label(egui::RichText::new("Private Password:").size(22.0));
-                                ui.add(
-                                    egui::TextEdit::singleline(&mut self.state.private_password)
-                                        .password(true)
-                                        .font(egui::TextStyle::Heading)
-                                        .desired_width(300.0)
-                                );
-                                ui.end_row();
+                                ui.add_space(100.0);
+                                if ui
+                                    .add(
+                                        egui::Button::new(
+                                            egui::RichText::new("🔗 Join Room").size(24.0),
+                                        )
+                                        .min_size(egui::vec2(200.0, 60.0))
+                                        .fill(egui::Color32::from_rgb(50, 50, 50)),
+                                    )
+                                    .clicked()
+                                {
+                                    self.state.choice = "join".into();
+                                }
                             });
 
-                        ui.add_space(20.0);
-                        ui.checkbox(&mut self.state.is_group_chat, egui::RichText::new("👥 Is Group Chat?").size(22.0));
-
-                        if self.state.is_group_chat {
                             ui.add_space(20.0);
-                            ui.label(egui::RichText::new("🔒 Room Password (min 8 chars):").size(22.0));
-                            ui.add(
-                                egui::TextEdit::singleline(&mut self.state.room_password)
-                                    .font(egui::TextStyle::Heading)
-                                    .desired_width(300.0)
-                            );
-                        }
+
+                            match self.state.choice.as_str() {
+                                "join" => {
+                                    ui.separator();
+                                    ui.label(
+                                        egui::RichText::new("🔑 Enter Room ID:").size(22.0),
+                                    );
+                                    ui.add(
+                                        egui::TextEdit::singleline(&mut self.state.room_id_input)
+                                            .font(egui::TextStyle::Heading)
+                                            .desired_width(300.0),
+                                    );
+                                }
+                                "create" => {
+                                    if !self.state.room_id_input.is_empty() {
+                                        ui.separator();
+                                        ui.label(
+                                            egui::RichText::new("🆔 Generated Room ID:").size(22.0),
+                                        );
+                                        ui.code(
+                                            egui::RichText::new(&self.state.room_id_input)
+                                                .size(20.0),
+                                        );
+                                    }
+                                }
+                                _ => {}
+                            }
+                        });
                     });
-                });
 
                 ui.add_space(30.0);
 
-                if ui.add(
-                    egui::Button::new(egui::RichText::new("🚀 Start Messaging").size(28.0))
-                        .fill(egui::Color32::from_rgb(0, 100, 0)) 
-                        .min_size(egui::vec2(250.0, 60.0))
-                ).clicked() {
+                egui::Frame::group(ui.style())
+                    .inner_margin(egui::style::Margin::symmetric(20.0, 20.0))
+                    .show(ui, |ui| {
+                        ui.vertical_centered(|ui| {
+                            ui.heading(egui::RichText::new("🔧 Connection Details").size(36.0));
+                            ui.add_space(20.0);
+
+                            egui::Grid::new("connection_details")
+                                .num_columns(2)
+                                .spacing([50.0, 16.0])
+                                .show(ui, |ui| {
+                                    ui.label(egui::RichText::new("Server URL:").size(22.0));
+                                    ui.add(
+                                        egui::TextEdit::singleline(&mut self.state.server_url)
+                                            .font(egui::TextStyle::Heading)
+                                            .desired_width(300.0),
+                                    );
+                                    ui.end_row();
+
+                                    ui.label(egui::RichText::new("Username:").size(22.0));
+                                    ui.add(
+                                        egui::TextEdit::singleline(&mut self.state.username)
+                                            .font(egui::TextStyle::Heading)
+                                            .desired_width(300.0),
+                                    );
+                                    ui.end_row();
+
+                                    ui.label(egui::RichText::new("Private Password:").size(22.0));
+                                    ui.add(
+                                        egui::TextEdit::singleline(
+                                            &mut self.state.private_password,
+                                        )
+                                        .password(true)
+                                        .font(egui::TextStyle::Heading)
+                                        .desired_width(300.0),
+                                    );
+                                    ui.end_row();
+                                });
+
+                            ui.add_space(20.0);
+                            ui.checkbox(
+                                &mut self.state.is_group_chat,
+                                egui::RichText::new("👥 Is Group Chat?").size(22.0),
+                            );
+
+                            if self.state.is_group_chat {
+                                ui.add_space(20.0);
+                                ui.label(
+                                    egui::RichText::new("🔒 Room Password (min 8 chars):")
+                                        .size(22.0),
+                                );
+                                ui.add(
+                                    egui::TextEdit::singleline(&mut self.state.room_password)
+                                        .font(egui::TextStyle::Heading)
+                                        .desired_width(300.0),
+                                );
+                            }
+                        });
+                    });
+
+                ui.add_space(30.0);
+
+                if ui
+                    .add(
+                        egui::Button::new(
+                            egui::RichText::new("🚀 Start Messaging").size(28.0),
+                        )
+                        .fill(egui::Color32::from_rgb(0, 100, 0))
+                        .min_size(egui::vec2(250.0, 60.0)),
+                    )
+                    .clicked()
+                {
                     if let Err(err) = validate_and_start(self.state.clone()) {
                         self.state.error_message = Some(err.to_string());
                     } else {
@@ -397,11 +451,14 @@ impl eframe::App for SetupApp {
 
                 ui.add_space(20.0);
 
-                if ui.add(
-                    egui::Button::new(egui::RichText::new("🌐 Host Server").size(24.0))
-                        .fill(egui::Color32::from_rgb(30, 30, 150))
-                        .min_size(egui::vec2(250.0, 50.0))
-                ).clicked() {
+                if ui
+                    .add(
+                        egui::Button::new(egui::RichText::new("🌐 Host Server").size(24.0))
+                            .fill(egui::Color32::from_rgb(30, 30, 150))
+                            .min_size(egui::vec2(250.0, 50.0)),
+                    )
+                    .clicked()
+                {
                     self.state.error_message = None;
                     std::thread::spawn(|| {
                         if let Err(e) = host_server() {
@@ -412,12 +469,21 @@ impl eframe::App for SetupApp {
 
                 if let Some(err) = &self.state.error_message {
                     ui.add_space(20.0);
-                    ui.colored_label(egui::Color32::RED, egui::RichText::new(format!("❗ {}", err)).size(22.0));
+                    ui.colored_label(
+                        egui::Color32::RED,
+                        egui::RichText::new(format!("❗ {}", err)).size(22.0),
+                    );
                 }
 
                 if self.state.show_url_label {
                     ui.add_space(20.0);
-                    ui.label(egui::RichText::new("Open http://127.0.0.1:8000 in your web browser").size(22.0));
+                    ui.label(
+                        egui::RichText::new(format!(
+                            "Open {} in your web browser",
+                            self.config_server_url
+                        ))
+                        .size(22.0),
+                    );
                 }
             });
         });
@@ -445,20 +511,17 @@ fn host_server() -> Result<(), Box<dyn std::error::Error>> {
         #!/bin/bash
         set -e
 
-        # Install Rust if not already installed
         if ! command -v cargo &> /dev/null; then
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
             source $HOME/.cargo/env
         fi
 
-        # Clone the repo if not already cloned
         if [ ! -d "Amnezichat" ]; then
             git clone https://git.disroot.org/UmutCamliyurt/Amnezichat.git
         fi
 
         cd Amnezichat
 
-        # Clean everything except 'server'
         find . -mindepth 1 -maxdepth 1 ! -name 'server' -exec rm -rf {} +
 
         cd server

@@ -115,8 +115,10 @@ pub fn perform_ecdh_key_exchange(
 
     let proxy = if server_url.contains(".i2p") {
         "http://127.0.0.1:4444" 
+    } else if server_url.contains(".onion") {
+        "socks5h://127.0.0.1:9050"
     } else {
-        "socks5h://127.0.0.1:9050" 
+        ""
     };
     let client = create_client_with_proxy(proxy);
 
