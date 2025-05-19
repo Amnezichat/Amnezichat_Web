@@ -1,6 +1,7 @@
 use rand::RngCore;
 use sha3::{Sha3_512, Digest};
 use zeroize::Zeroize;
+use hex;
 use chacha20poly1305::{
     aead::{Aead, KeyInit, OsRng},
     ChaCha20Poly1305, Key, Nonce,
@@ -34,8 +35,6 @@ pub fn combine_shared_secrets(
     kyber_secret: &str,
     ecdh_secret: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    use sha3::{Digest, Sha3_512};
-    use hex; 
 
     let combined = [kyber_secret.as_bytes(), ecdh_secret.as_bytes()].concat();
 

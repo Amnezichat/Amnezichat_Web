@@ -63,6 +63,7 @@ use rfd::MessageButtons;
 use rfd::MessageLevel;
 use rfd::MessageDialogResult;
 use std::process::Stdio;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use which::which;
 
@@ -466,6 +467,7 @@ fn host_server() -> Result<(), Box<dyn std::error::Error>> {
     "#;
 
     fs::write("start_server.sh", setup_script)?;
+    #[cfg(unix)]
     fs::set_permissions("start_server.sh", fs::Permissions::from_mode(0o755))?;
 
     Command::new("xterm")
@@ -482,6 +484,7 @@ fn host_server() -> Result<(), Box<dyn std::error::Error>> {
 fn configure_tor_for_onion_service() -> Result<(), Box<dyn std::error::Error>> {
     let hidden_dir = "./hidden_service";
     fs::create_dir_all(hidden_dir)?;
+    #[cfg(unix)]
     fs::set_permissions(hidden_dir, fs::Permissions::from_mode(0o700))?;
 
     let torrc_path = format!("{}/torrc", hidden_dir);
