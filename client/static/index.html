@@ -20,10 +20,10 @@
       <button type="button" onclick="toggleSettings()" aria-label="Open settings">⚙️</button>
     </form>
 
-    <section id="recordingStatus" hidden class="recording-status" aria-live="assertive">
-      <span id="timer">00:00</span>
-      <button type="button" onclick="cancelVoiceRecording()" class="danger">Cancel ❌</button>
-    </section>
+    <section id="recordingStatus" class="hidden">
+      <span id="recordingTime">00:00</span>
+      <button class="cancel-button">Cancel ✖</button>
+    </section>    
   </main>
 
   <aside id="settings" hidden class="modal">
@@ -32,6 +32,9 @@
       <input type="file" accept="image/*" id="profilePicInput" hidden onchange="handleProfilePicChange(event)" />
       <button onclick="document.getElementById('profilePicInput').click()">Choose Profile Picture</button>
       <button onclick="toggleTheme()">Toggle Light/Dark Mode</button>
+
+      <button class="danger-button" onclick="clearCachedMessages()">Clear Cache</button>
+
       <button onclick="closeSettings()">Close</button>
     </div>
   </aside>

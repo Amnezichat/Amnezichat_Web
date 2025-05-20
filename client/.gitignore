@@ -1,9 +1,6 @@
-# Amnezichat
 keys/
 contact_fingerprints.enc
 
-# Generated files
 target/
 
-# Well, this depends... See below!
 Cargo.lock

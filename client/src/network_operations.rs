@@ -34,10 +34,9 @@ pub fn create_client_with_proxy(proxy: &str) -> Client {
 }
 
 pub fn fetch_kyber_pubkey(password: &str, server_url: &str) -> Option<String> {
-
     let mut rng = rand::thread_rng();
-    let delay_secs = rng.gen_range(10..=60);
-    println!("Waiting for {} seconds to prevent race condition...", delay_secs);
+    let delay_secs = rng.gen_range(1..=5);
+    println!("Waiting for {} seconds to reduce race condition risk...", delay_secs);
     thread::sleep(Duration::from_secs(delay_secs));
 
     let proxy = if server_url.contains(".i2p") {
@@ -51,52 +50,35 @@ pub fn fetch_kyber_pubkey(password: &str, server_url: &str) -> Option<String> {
 
     let url = format!("{}/messages?room_id={}", server_url, password);
     let mut retries = 0;
-    let max_retries = 3;
+    let max_retries = 5;
 
-    loop {
-        let res: Response = match client.get(&url).timeout(Duration::from_secs(60)).send() {
-            Ok(response) => response,
-            Err(_) => {
-                retries += 1;
-                if retries > max_retries {
-                    return None; 
-                }
-                println!("Error while fetching public key. Retrying...");
-                thread::sleep(Duration::from_secs(2)); 
-                continue;
-            }
-        };
-
-        if res.status().is_success() {
-            let body = match res.text() {
-                Ok(text) => text,
-                Err(_) => {
-                    retries += 1;
-                    if retries > max_retries {
-                        return None;
+    while retries < max_retries {
+        match client.get(&url).timeout(Duration::from_secs(60)).send() {
+            Ok(res) if res.status().is_success() => {
+                match res.text() {
+                    Ok(body) => {
+                        if let Some(public_key_start) = body.find("KYBER_PUBLIC_KEY:") {
+                            let public_key = &body[public_key_start + "KYBER_PUBLIC_KEY:".len()..];
+                            if let Some(end_data) = public_key.find("[END DATA]") {
+                                return Some(public_key[0..end_data].to_string());
+                            }
+                        }
+                        println!("Public key not found in response. Retrying...");
                     }
-                    println!("Error while reading response body. Retrying...");
-                    thread::sleep(Duration::from_secs(2)); 
-                    continue;
-                }
-            };
-
-            if let Some(public_key_start) = body.find("KYBER_PUBLIC_KEY:") {
-                let public_key = &body[public_key_start + "KYBER_PUBLIC_KEY:".len()..]; 
-                if let Some(end_data) = public_key.find("[END DATA]") {
-                    return Some(public_key[0..end_data].to_string()); 
+                    Err(_) => println!("Error reading response body. Retrying..."),
                 }
             }
+            Ok(_) => println!("Unexpected status code. Retrying..."),
+            Err(_) => println!("Request failed. Retrying..."),
         }
 
         retries += 1;
-        if retries > max_retries {
-            return None; 
-        }
 
-        println!("Public key not found. Retrying...");
-        thread::sleep(Duration::from_secs(2)); 
+        let retry_delay = rng.gen_range(1..=3);
+        thread::sleep(Duration::from_secs(retry_delay));
     }
+
+    None
 }
 
 pub fn fetch_dilithium_pubkeys(password: &str, server_url: &str) -> Vec<String> {

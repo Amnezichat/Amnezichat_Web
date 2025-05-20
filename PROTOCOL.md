@@ -32,14 +32,9 @@ Amnezichat is a secure, privacy-focused messaging protocol designed to ensure th
 - Each participant in a group shares a common PSK for message encryption.
 
 ### 4. Data Retention Policy
-- Messages are stored only in RAM and wiped automatically after 24 hours.
+- Messages are stored only in RAM and wiped automatically after 10 minutes.
 - No persistent logs or metadata are retained by the server.
 - Server resets result in complete data erasure.
-
-## Network Layer
-- All traffic is routed over Tor/I2P network by default to provide anonymity.
-- Onion/Garlic routing ensures that IP addresses remain hidden.
-- Messages are encapsulated in encrypted packets with randomized timing to prevent correlation attacks.
 
 ## Security Considerations
 - Users must ensure their local devices are secure to prevent key theft.

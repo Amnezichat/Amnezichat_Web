@@ -163,6 +163,20 @@ input[type="text"]:focus-visible {
     outline-offset: 2px;
 }
 
+.danger-button {
+    background: linear-gradient(135deg, #ff4c4c, #d60000);
+    color: #fff;
+}
+
+.danger-button:hover {
+    background: linear-gradient(135deg, #ff6666, #e60000);
+}
+
+.danger-button:active {
+    background: #c10000;
+    color: #fff;
+}
+
 button {
     padding: 10px 22px; 
     border: none;
@@ -195,6 +209,63 @@ button:focus-visible {
     outline: 2px solid rgba(136, 136, 136, 0.8);
     outline-offset: 2px;
 }
+
+#recordingStatus {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(12px);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 40px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 999;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  
+  #recordingStatus.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  
+  #recordingStatus::before {
+    content: '🔴';
+    animation: pulse 1.2s infinite;
+    font-size: 16px;
+    margin-right: 6px;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  
+  #recordingStatus .cancel-button {
+    background: transparent;
+    border: none;
+    color: #ff4c4c;
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 20px;
+    transition: background 0.2s ease;
+  }
+  
+  #recordingStatus .cancel-button:hover {
+    background: rgba(255, 76, 76, 0.1);
+  }  
 
 #settings,
 #mediaModal {
@@ -271,52 +342,68 @@ button:focus-visible {
 }
 
 body.light-theme {
-    background-color: #f5f7fa;
-    color: #222;
-    background-image: none; 
+    background-color: #f2f4f8;
+    color: #1e1e1e;
+    background-image: none;
 }
 
 body.light-theme #messages {
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(18px);
-    border: 1px solid #ddd;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid #ccc;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.05);
 }
 
 body.light-theme .message-bubble {
-    background: #fff;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-    color: #333;
+    background: #ffffff;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+    color: #222;
 }
 
 body.light-theme input[type="text"] {
     background-color: #fff;
     color: #222;
-    border-color: #ccc;
+    border: 1px solid #ccc;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
 body.light-theme input[type="text"]:focus {
     border-color: #666;
-    box-shadow: 0 0 0 4px rgba(102, 102, 102, 0.25);
+    box-shadow: 0 0 0 3px rgba(102, 102, 102, 0.15);
 }
 
 body.light-theme button {
-    background: linear-gradient(135deg, #a3a3a3, #858585);
-    color: #222;
+    background: linear-gradient(135deg, #d1d1d1, #bfbfbf);
+    color: #1e1e1e;
 }
 
 body.light-theme button:hover {
-    background: linear-gradient(135deg, #b3b3b3, #969696);
+    background: linear-gradient(135deg, #e0e0e0, #c9c9c9);
+    color: #111;
 }
 
 body.light-theme button:active {
-    background: #8f8f8f;
+    background: #b5b5b5;
+    color: #000;
+}
+
+body.light-theme .danger-button {
+    background: linear-gradient(135deg, #ff4c4c, #d60000);
+    color: #fff;
+}
+
+body.light-theme .danger-button:hover {
+    background: linear-gradient(135deg, #ff6666, #e60000);
+}
+
+body.light-theme .danger-button:active {
+    background: #c10000;
 }
 
 body.light-theme .settings-content {
-    background-color: #fff;
-    color: #222;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    background-color: #ffffff;
+    color: #1e1e1e;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
 body.light-theme .settings-content h2 {

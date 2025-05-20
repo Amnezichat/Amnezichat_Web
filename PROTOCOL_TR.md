@@ -32,14 +32,9 @@ Amnezichat, hiçbir log kaydının tutulmamasını ve tüm mesaj verilerinin yal
 - Bir grup içindeki her istemci, mesaj şifreleme için ortak bir şifreleme anahtarı paylaşır.
 
 ### 4. Veri Saklama Politikası
-- Mesajlar yalnızca RAM'de saklanır ve 24 saat sonra otomatik olarak silinir.
+- Mesajlar yalnızca RAM'de saklanır ve 10 dakika sonra otomatik olarak silinir.
 - Sunucu tarafından kalıcı loglar veya başka veriler saklanmaz.
 - Sunucunun yeniden başlatılması tüm verilerin silinmesine yol açar.
-
-## Ağ Katmanı
-- Tüm trafik, anonimlik sağlamak amacıyla varsayılan olarak Tor/I2P ağı üzerinden yönlendirilir.
-- Onion/Garlic yönlendirme, IP adreslerinin gizli kalmasını sağlar.
-- Mesajlar, korelasyon saldırılarını önlemek için rastgele zamanlamalarla şifreli paketlere kapsüllenir.
 
 ## Güvenlik Hususları
 - Kullanıcılar, anahtarların çalınmasını engellemek için yerel cihazlarının güvende olduğundan emin olmalıdır.
