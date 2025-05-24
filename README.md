@@ -132,7 +132,6 @@ You can access **Amnezichat** source code from multiple mirror repositories:
 - 🔗 **[Codeberg Mirror](https://codeberg.org/umutcamliyurt/Amnezichat)**
 - 🔗 **[GitHub Mirror](https://github.com/umutcamliyurt/Amnezichat)**
 - 🔗 **[NemesisCloud Mirror](http://c2vz25ugnpnrqmzcksavlzyxmy3eavcxnyxjbjqkez2svoj5dlc5x7id.onion/umutcamliyurt/Amnezichat)**
-- 🔗 **[EveryPizza Mirror](https://nemesisgit.everypizza.im/nemesis/Amnezichat)**
 
 <!-- LICENSE -->
 ## License
