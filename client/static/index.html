@@ -31,9 +31,13 @@
       <h2>Settings</h2>
       <input type="file" accept="image/*" id="profilePicInput" hidden onchange="handleProfilePicChange(event)" />
       <button onclick="document.getElementById('profilePicInput').click()">Choose Profile Picture</button>
+
+      <input type="file" accept="image/*" id="wallpaperInput" hidden onchange="handleWallpaperChange(event)" />
+      <button onclick="document.getElementById('wallpaperInput').click()">Choose Wallpaper</button>
+      
       <button onclick="toggleTheme()">Toggle Light/Dark Mode</button>
 
-      <button class="danger-button" onclick="clearCachedMessages()">Clear Cache</button>
+      <button class="danger-button" onclick="clearCache()">Clear Settings & Cache</button>
 
       <button onclick="closeSettings()">Close</button>
     </div>

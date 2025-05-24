@@ -43,6 +43,26 @@ const handleProfilePicChange = (event) => {
   reader.readAsDataURL(file);
 };
 
+function handleWallpaperChange(event) {
+  const file = event.target.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const imageUrl = e.target.result;
+    document.body.style.backgroundImage = `url(${imageUrl})`;
+    localStorage.setItem('customWallpaper', imageUrl);
+  };
+  reader.readAsDataURL(file);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const savedWallpaper = localStorage.getItem('customWallpaper');
+  if (savedWallpaper) {
+    document.body.style.backgroundImage = `url(${savedWallpaper})`;
+  }
+});
+
 const handleMediaChange = (event) => {
   const file = event.target.files[0];
   if (!file) return;
@@ -164,9 +184,29 @@ const sendMessage = async () => {
   fetchMessages();
 };
 
-const clearCachedMessages = () => {
+const clearCache = () => {
+  localStorage.removeItem("profilePic");
+  localStorage.removeItem("notifiedMessages");
   localStorage.removeItem("cachedMessages");
-  renderMessages([]);
+  localStorage.removeItem("customWallpaper");
+
+  profilePicBase64 = "";
+  notifiedMessageSet.clear();
+  audioChunks = [];
+  recordingStartTime = null;
+  clearInterval(recordingTimerInterval);
+  recordingTimerInterval = null;
+
+  qid("messages").innerHTML = "";
+  qid("messageInput").value = "";
+  document.body.style.backgroundImage = "";
+
+  const micBtn = qid("micButton");
+  micBtn.innerText = "🎤";
+  micBtn.onclick = startVoiceRecording;
+
+  hideRecordingStatus();
+  qid("recordingTime").textContent = "00:00";
 };
 
 const toggleSettings = () => {
