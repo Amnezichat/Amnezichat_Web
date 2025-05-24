@@ -1,0 +1,19 @@
+# This YAML follows the structure outlined in
+# https://git.disroot.org/ashx/fediverse-spec/src/branch/main/FEDIVERSE.md
+# http://kgtz2pmmov5jfvn3z4mqryffjnnw6krzrgxxoyaqhqckjrr4pckyhsqd.onion/ashx/fediverse-spec/src/branch/main/FEDIVERSE.md
+
+git:
+  repo_main:
+    clearnet:
+      browser: 'https://git.disroot.org/UmutCamliyurt/Amnezichat'
+      clone_http: 'https://git.disroot.org/UmutCamliyurt/Amnezichat.git'
+      clone_ssh: 'ssh://git@git.disroot.org/UmutCamliyurt/Amnezichat.git'
+    onion:
+      browser: 'http://kgtz2pmmov5jfvn3z4mqryffjnnw6krzrgxxoyaqhqckjrr4pckyhsqd.onion/UmutCamliyurt/Amnezichat'
+      clone_http: 'http://kgtz2pmmov5jfvn3z4mqryffjnnw6krzrgxxoyaqhqckjrr4pckyhsqd.onion/UmutCamliyurt/Amnezichat.git'
+  repo_mirror:
+    '0':
+      clearnet:
+        browser: 'https://github.com/umutcamliyurt/Amnezichat'
+        clone_http: 'https://github.com/umutcamliyurt/Amnezichat.git'
+        clone_ssh: 'ssh://git@github.com:umutcamliyurt/Amnezichat.git'
