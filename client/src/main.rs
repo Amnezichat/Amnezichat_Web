@@ -259,7 +259,14 @@ impl Default for AppState {
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    MessageDialog::new()
+        .set_level(MessageLevel::Warning)
+        .set_title("Security Warning")
+        .set_description("Web UI is not safe for anti-forensics.\nUse with caution.")
+        .set_buttons(MessageButtons::Ok)
+        .show();
+
     let mut options = eframe::NativeOptions::default();
     options.viewport.resizable = Some(false);
     options.viewport.inner_size = Some(egui::vec2(600.0, 1000.0));

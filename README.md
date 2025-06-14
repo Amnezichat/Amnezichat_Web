@@ -7,11 +7,13 @@
 
 <img src="banner.png" width="1200">
 
-## Anti-forensic and secure messenger with web user interface
+> ## ⚠️ **Warning:** Web UI can persist message data. Use with caution.
+
+## RAM-only secure messenger with web user interface
 <!-- DESCRIPTION -->
 ## Description:
 
-An anti-forensic messenger offers significant benefits by enhancing the privacy and security of digital communications. It is designed to prevent forensic investigators or malicious actors from recovering, analyzing, or tracing messages and related metadata. By employing advanced encryption, secure deletion methods, and obfuscation techniques, these messengers ensure that deleted or hidden communications are nearly impossible to recover.
+RAM-only secure messengers offer enhanced privacy and security by minimizing data persistence and exposure. A RAM-only system ensures that all user data, including messages and encryption keys, are stored temporarily in volatile memory (RAM) rather than on a hard drive, which significantly reduces the risk of data retrieval after shutdown or compromise.
 
 <!-- FEATURES -->
 ## Features:
@@ -116,8 +118,6 @@ You can access **Amnezichat_Web** source code from multiple mirror repositories:
 ## License
 
 Distributed under the GPLv3 License. See `LICENSE` for more information.
-
-## <a href="CONTRIBUTORS.md">Contributors</a>
 
 ## Donate to support development of this project!
 

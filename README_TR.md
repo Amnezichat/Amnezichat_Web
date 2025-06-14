@@ -7,11 +7,13 @@
 
 <img src="banner.png" width="1200">
 
-## İz bırakmayan güvenli mesajlaşma
+> ## ⚠️ **Uyarı:** Web arayüzü yeterince güvenli değildir. Dikkatli kullanın.
+
+## Sadece RAM kullanan güvenli mesajlaşma
 <!-- AÇIKLAMA -->
 ## Açıklama:
 
-Bir anti-forensik mesajlaşma uygulaması, dijital iletişimlerin gizliliğini ve güvenliğini artırarak önemli avantajlar sunar. Bu uygulama, adli araştırmacıların veya kötü niyetli aktörlerin mesajları ve ilgili meta verileri geri kazanmasını, analiz etmesini veya izini sürmesini engellemek için tasarlanmıştır. Gelişmiş şifreleme, güvenli silme yöntemleri ve belirsizlik teknikleri kullanarak, bu mesajlaşma uygulamaları silinmiş veya gizlenmiş iletişimlerin neredeyse geri kazanılamaz olmasını sağlar.
+Yalnızca RAM kullanan güvenli mesajlaşma uygulamaları, veri kalıcılığını ve maruz kalma riskini en aza indirerek gelişmiş gizlilik ve güvenlik sağlar. Yalnızca RAM kullanan bir sistem, tüm kullanıcı verilerinin — mesajlar ve şifreleme anahtarları dahil — HDD'ye kaydedilmek yerine RAM üzerinde tutulmasını sağlar. Bu da sistem kapatıldıktan veya güvenliği ihlal edildikten sonra verilerin geri alınma riskini önemli ölçüde azaltır.
 
 <!-- ÖZELLİKLER -->
 ## Özellikler:
@@ -110,8 +112,6 @@ Bir anti-forensik mesajlaşma uygulaması, dijital iletişimlerin gizliliğini v
 ## Lisans
 
 GPLv3 Lisansı altında dağıtılmaktadır. Daha fazla bilgi için `LICENSE` dosyasına bakın.
-
-## <a href="CONTRIBUTORS_TR.md">Destekçiler</a>
 
 ## Bu projenin geliştirilmesini desteklemek için bağış yapın!
 

@@ -1,52 +1,237 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Amnezichat">
   <title>Amnezichat</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="icon" href="/static/icon.png" type="image/png">
   <script src="/static/purify.min.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
 <body>
-  <main class="container">
-    <section id="messages" aria-live="polite" role="log"></section>
-
-    <form class="input-container" onsubmit="event.preventDefault(); sendMessage();">
-      <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off" aria-label="Message input" />
-      <button type="submit" aria-label="Send message">💬</button>
-      <button type="button" onclick="document.getElementById('mediaInput').click()" aria-label="Send media">🖼️</button>
-      <button type="button" id="micButton" onclick="startVoiceRecording()" aria-label="Voice message">🎤</button>
-      <button type="button" onclick="toggleSettings()" aria-label="Open settings">⚙️</button>
-    </form>
-
-    <section id="recordingStatus" class="hidden">
-      <span id="recordingTime">00:00</span>
-      <button class="cancel-button">Cancel ✖</button>
-    </section>    
-  </main>
-
-  <aside id="settings" hidden class="modal">
-    <div class="settings-content">
-      <h2>Settings</h2>
-      <input type="file" accept="image/*" id="profilePicInput" hidden onchange="handleProfilePicChange(event)" />
-      <button onclick="document.getElementById('profilePicInput').click()">Choose Profile Picture</button>
-
-      <input type="file" accept="image/*" id="wallpaperInput" hidden onchange="handleWallpaperChange(event)" />
-      <button onclick="document.getElementById('wallpaperInput').click()">Choose Wallpaper</button>
+  <div class="app">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <h2>Settings</h2>
+        <button class="btn-icon" onclick="toggleSidebar()" aria-label="Close settings">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
       
-      <button onclick="toggleTheme()">Toggle Light/Dark Mode</button>
+      <div class="sidebar-content">
+        <div class="section">
+          <h3>Profile</h3>
+          <div class="profile-section">
+            <img id="profilePreview" src="/static/default_pfp.jpg" alt="Profile Picture" class="profile-avatar">
+            <button class="btn-outline" onclick="document.getElementById('profilePicInput').click()">
+              <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              Change Photo
+            </button>
+          </div>
+        </div>
 
-      <button class="danger-button" onclick="clearCache()">Clear Settings & Cache</button>
+        <div class="section">
+          <h3>Appearance</h3>
+          <div class="setting">
+            <label>Theme</label>
+            <div class="theme-grid">
+              <button class="theme-option" data-theme="light" onclick="setTheme('light')">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="5"/>
+                  <line x1="12" y1="1" x2="12" y2="3"/>
+                  <line x1="12" y1="21" x2="12" y2="23"/>
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                  <line x1="1" y1="12" x2="3" y2="12"/>
+                  <line x1="21" y1="12" x2="23" y2="12"/>
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+                Light
+              </button>
+              <button class="theme-option" data-theme="dark" onclick="setTheme('dark')">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                </svg>
+                Dark
+              </button>
+              <button class="theme-option" data-theme="auto" onclick="setTheme('auto')">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+                Auto
+              </button>
+            </div>
+          </div>
+          
+          <div class="setting">
+            <label>Background</label>
+            <button class="btn-outline" onclick="document.getElementById('wallpaperInput').click()">
+              <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21,15 16,10 5,21"/>
+              </svg>
+              Custom Wallpaper
+            </button>
+          </div>
 
-      <button onclick="closeSettings()">Close</button>
+          <div class="setting">
+            <label>Font Size</label>
+            <div class="font-size-grid">
+              <button class="font-option" data-size="small" onclick="setFontSize('small')">A</button>
+              <button class="font-option" data-size="medium" onclick="setFontSize('medium')">A</button>
+              <button class="font-option" data-size="large" onclick="setFontSize('large')">A</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Privacy & Data</h3>
+          <div class="setting">
+            <label>Notifications</label>
+            <label class="switch">
+              <input type="checkbox" id="notificationsToggle" checked onchange="toggleNotifications()">
+              <span class="slider"></span>
+            </label>
+          </div>
+          
+          <div class="setting">
+            <label>Auto-save Messages</label>
+            <label class="switch">
+              <input type="checkbox" id="autosaveToggle" checked onchange="toggleAutosave()">
+              <span class="slider"></span>
+            </label>
+          </div>
+          
+          <button class="btn-destructive" onclick="clearCache()">
+            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <polyline points="3,6 5,6 21,6"/>
+              <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
+            Clear All Data
+          </button>
+        </div>
+
+        <div class="section">
+          <h3>About</h3>
+          <div class="about">
+            <div class="about-version">Amnezichat v1</div>
+            <div class="about-desc">Secure messaging</div>
+            <div class="about-credits">Frontend by nthpyrodev</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="header">
+        <div class="header-left">
+          <button class="btn-icon" onclick="toggleSidebar()" aria-label="Open settings">
+            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          <h1 class="title">Amnezichat</h1>
+        </div>
+        <div class="status" id="connectionStatus">
+          <div class="status-dot online"></div>
+          <span class="status-text">Online</span>
+        </div>
+      </header>
+
+      <main class="messages-container">
+        <div id="messages" class="messages" aria-live="polite" role="log"></div>
+        <div class="empty-state" id="messagesPlaceholder">
+          <svg class="empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+          </svg>
+          <h3>No messages yet</h3>
+          <p>Start a conversation by sending a message below</p>
+        </div>
+      </main>
+
+      <footer class="input-container">
+        <form class="input-form" onsubmit="event.preventDefault(); sendMessage();">
+          <div class="input-wrapper">
+            <button type="button" class="btn-icon" onclick="document.getElementById('mediaInput').click()" aria-label="Send media">
+              <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+              </svg>
+            </button>
+            
+            <input 
+              type="text" 
+              id="messageInput" 
+              class="input" 
+              placeholder="Type a message..." 
+              autocomplete="off" 
+              aria-label="Message input"
+              maxlength="1000"
+            >
+            
+            <button type="button" class="btn-icon" id="micButton" onclick="startVoiceRecording()" aria-label="Voice message">
+              <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+              </svg>
+            </button>
+            
+            <button type="submit" class="btn-primary" aria-label="Send message">
+              <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+              </svg>
+            </button>
+          </div>
+        </form>
+      </footer>
     </div>
-  </aside>
 
-  <div id="mediaModal" class="media-modal" onclick="closeMediaModal()">
-    <span class="close-btn" onclick="closeMediaModal(); event.stopPropagation();">&times;</span>
+    <div id="recordingStatus" class="recording-overlay hidden">
+      <div class="recording-content">
+        <div class="recording-indicator">
+          <div class="recording-dot"></div>
+          <span id="recordingTime">00:00</span>
+        </div>
+        <button class="btn-ghost" onclick="cancelVoiceRecording()">
+          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          Cancel
+        </button>
+      </div>
+    </div>
   </div>
 
-  <input type="file" accept="image/*,video/*" id="mediaInput" hidden onchange="handleMediaChange(event)" />
+  <div id="sidebarOverlay" class="overlay" onclick="closeSidebar()"></div>
+
+  <div id="mediaModal" class="modal" onclick="closeMediaModal()">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeMediaModal(); event.stopPropagation();" aria-label="Close media">
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <input type="file" accept="image/*" id="profilePicInput" hidden onchange="handleProfilePicChange(event)">
+  <input type="file" accept="image/*" id="wallpaperInput" hidden onchange="handleWallpaperChange(event)">
+  <input type="file" accept="image/*,video/*,audio/*" id="mediaInput" hidden onchange="handleMediaChange(event)">
+
+  <div id="toast" class="toast hidden">
+    <span class="toast-message"></span>
+    <button class="toast-close" onclick="hideToast()">x</button>
+  </div>
 </body>
 </html>
