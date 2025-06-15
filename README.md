@@ -11,12 +11,12 @@
 <!-- DESCRIPTION -->
 ## Description:
 
-Amnezichat_Web offers a highly secure and privacy-focused messaging experience by ensuring that no logs are retained and all message data is stored exclusively in the server's RAM. This approach significantly enhances user privacy because RAM storage is inherently volatile data is automatically erased when the server is powered down or restarted, leaving no trace of already end-to-end encrypted past communications.
+An anti-forensic messenger offers significant benefits by enhancing the privacy and security of digital communications. It is designed to prevent forensic investigators or malicious actors from recovering, analyzing, or tracing messages and related metadata. By employing advanced encryption, secure deletion methods, and obfuscation techniques, these messengers ensure that deleted or hidden communications are nearly impossible to recover.
 
 <!-- FEATURES -->
 ## Features:
 
-- Client-side quantum-resistant E2E message encryption
+- Quantum-resistant E2E message encryption
 
 - Forward and backward secrecy for one-to-one chats
 

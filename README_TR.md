@@ -11,12 +11,12 @@
 <!-- AÇIKLAMA -->
 ## Açıklama:
 
-Amnezichat, hiçbir kayıt tutulmamasını ve tüm mesaj verilerinin yalnızca sunucunun RAM'inde saklanmasını sağlayarak son derece güvenli ve gizlilik odaklı bir mesajlaşma deneyimi sunar. Bu yaklaşım, kullanıcı gizliliğini önemli ölçüde artırır çünkü RAM depolaması doğası gereği geçicidir; sunucu kapatıldığında veya yeniden başlatıldığında veri otomatik olarak silinir ve uçtan uca şifrelenmiş geçmiş iletişimlerin hiçbir izi kalmaz.
+Bir anti-forensik mesajlaşma uygulaması, dijital iletişimlerin gizliliğini ve güvenliğini artırarak önemli avantajlar sunar. Bu uygulama, adli araştırmacıların veya kötü niyetli aktörlerin mesajları ve ilgili meta verileri geri kazanmasını, analiz etmesini veya izini sürmesini engellemek için tasarlanmıştır. Gelişmiş şifreleme, güvenli silme yöntemleri ve belirsizlik teknikleri kullanarak, bu mesajlaşma uygulamaları silinmiş veya gizlenmiş iletişimlerin neredeyse geri kazanılamaz olmasını sağlar.
 
 <!-- ÖZELLİKLER -->
 ## Özellikler:
 
-- İstemci tarafında kuantum dirençli uçtan uca mesaj şifreleme
+- Kuantum dirençli uçtan uca mesaj şifreleme
 
 - Bire bir sohbetler için forward ve backward secrecy
 
